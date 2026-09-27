@@ -2,6 +2,7 @@ interface Env {
   TRACCAR_URL: string
   TRACCAR_USERNAME: string
   TRACCAR_PASSWORD: string
+  DB: D1Database
 }
 
 interface TraccarDevice {
@@ -66,7 +67,89 @@ export default {
         service: 'sailinghortalive',
       })
     }
+if (url.pathname === '/api/events' && request.method === 'GET') {
+  const result = await env.DB
+    .prepare(`
+      SELECT
+        id,
+        name,
+        start_time,
+        end_time,
+        status,
+        created_at,
+        updated_at
+      FROM events
+      ORDER BY start_time ASC, created_at ASC
+    `)
+    .all()
 
+  return json({
+    ok: true,
+    events: result.results ?? [],
+  })
+}
+
+if (url.pathname === '/api/events' && request.method === 'POST') {
+  try {
+    const body = await request.json() as {
+      name?: string
+      startTime?: string
+      endTime?: string
+    }
+
+    const name = body.name?.trim()
+
+    if (!name) {
+      return json(
+        {
+          ok: false,
+          error: 'Nome da regata obrigatório',
+        },
+        400,
+      )
+    }
+
+    const id = crypto.randomUUID()
+
+    await env.DB
+      .prepare(`
+        INSERT INTO events (
+          id,
+          name,
+          start_time,
+          end_time,
+          status
+        )
+        VALUES (?, ?, ?, ?, 'scheduled')
+      `)
+      .bind(
+        id,
+        name,
+        body.startTime ?? null,
+        body.endTime ?? null,
+      )
+      .run()
+
+    return json(
+      {
+        ok: true,
+        id,
+      },
+      201,
+    )
+  } catch (error) {
+    return json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao criar regata',
+      },
+      500,
+    )
+  }
+}
     if (url.pathname === '/api/live') {
       try {
         const [devicesResponse, positionsResponse] =
