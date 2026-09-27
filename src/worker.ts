@@ -130,6 +130,91 @@ async function ensureCourseLinesTable(env: Env) {
   `).run()
 }
 
+
+function haversineNm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) {
+  const R_NM = 3440.065
+  const toRad = (value: number) => value * Math.PI / 180
+
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R_NM * c
+}
+
+async function getTrackForDevice(
+  env: Env,
+  deviceId: number,
+  distanceNm: number,
+) {
+  const to = new Date()
+  const from = new Date(to.getTime() - 6 * 60 * 60 * 1000)
+
+  const params = new URLSearchParams({
+    deviceId: String(deviceId),
+    from: from.toISOString(),
+    to: to.toISOString(),
+  })
+
+  const response = await traccarFetch(
+    env,
+    `/api/reports/route?${params.toString()}`,
+  )
+
+  if (!response.ok) {
+    return []
+  }
+
+  const positions = (await response.json()) as TraccarPosition[]
+
+  const valid = positions
+    .filter(
+      (p) =>
+        Number.isFinite(p.latitude) &&
+        Number.isFinite(p.longitude),
+    )
+    .sort((a, b) => {
+      const ta = new Date(a.fixTime ?? a.deviceTime ?? a.serverTime ?? 0).getTime()
+      const tb = new Date(b.fixTime ?? b.deviceTime ?? b.serverTime ?? 0).getTime()
+      return ta - tb
+    })
+
+  if (valid.length <= 1) return valid
+
+  const selected: TraccarPosition[] = []
+  let accumulated = 0
+
+  for (let i = valid.length - 1; i >= 0; i--) {
+    selected.push(valid[i])
+
+    if (i > 0) {
+      accumulated += haversineNm(
+        valid[i].latitude,
+        valid[i].longitude,
+        valid[i - 1].latitude,
+        valid[i - 1].longitude,
+      )
+
+      if (accumulated >= distanceNm) {
+        break
+      }
+    }
+  }
+
+  return selected.reverse()
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -149,6 +234,68 @@ export default {
         return json({ ok: true, events: result.results ?? [] })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar regatas' }, 500)
+      }
+    }
+
+    const eventTracksMatch = url.pathname.match(
+      /^\/api\/events\/([^/]+)\/tracks$/,
+    )
+
+    if (eventTracksMatch && request.method === 'GET') {
+      try {
+        const eventId = eventTracksMatch[1]
+        const requestedDistance = Number(url.searchParams.get('distance') ?? '1')
+        const distanceNm = Math.min(2, Math.max(0.5, requestedDistance))
+
+        const participants = await env.DB.prepare(`
+          SELECT traccar_device_id, boat_name
+          FROM event_participants
+          WHERE event_id = ?
+          ORDER BY boat_name COLLATE NOCASE ASC
+        `).bind(eventId).all<{
+          traccar_device_id: number
+          boat_name: string
+        }>()
+
+        const rows = participants.results ?? []
+
+        const trackResults = await Promise.all(
+          rows.map(async (participant) => {
+            const positions = await getTrackForDevice(
+              env,
+              Number(participant.traccar_device_id),
+              distanceNm,
+            )
+
+            return {
+              deviceId: Number(participant.traccar_device_id),
+              boatName: participant.boat_name,
+              positions: positions.map((position) => ({
+                latitude: position.latitude,
+                longitude: position.longitude,
+                fixTime:
+                  position.fixTime ??
+                  position.deviceTime ??
+                  position.serverTime ??
+                  null,
+              })),
+            }
+          }),
+        )
+
+        return json({
+          ok: true,
+          distanceNm,
+          tracks: trackResults,
+        })
+      } catch (error) {
+        return json({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao carregar rastos',
+        }, 500)
       }
     }
 

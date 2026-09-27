@@ -1,12 +1,13 @@
-# Sailing Horta Live 2 — v0.3.1
+# Sailing Horta Live 2 — v0.4
 
-Correção das linhas de largada e chegada.
-
-- Linha de largada = 2 extremos independentes.
-- Linha de chegada = 2 extremos independentes.
-- Cada extremo pode ser arrastado no mapa.
-- O trajeto visual liga o ponto médio da largada às marcas e depois ao ponto médio da chegada.
-- As linhas são guardadas por evento numa tabela própria `course_lines`.
-- Bóias e waypoints continuam em `course_points`.
-- Eliminar um evento elimina também as suas linhas.
-- A tabela `course_lines` é criada automaticamente pelo Worker na primeira utilização.
+Novidades:
+- Menu Camadas no Live.
+- Percurso on/off.
+- Nomes dos barcos on/off.
+- Vento via janela Windy.
+- Rasto por regata: desligado / 0,5 NM / 1 NM / 2 NM.
+- Rasto com a mesma cor do veleiro.
+- Posições atuais continuam a atualizar a cada ~2 s.
+- Rastos atualizam a cada 20 s.
+- O rasto é obtido do histórico do Traccar.
+- O rasto só fica disponível quando uma regata está selecionada.

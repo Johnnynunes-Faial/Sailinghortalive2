@@ -1,19 +1,21 @@
-ATUALIZAÇÃO v0.3.1 — LINHAS DE LARGADA/CHEGADA
+ATUALIZAÇÃO v0.4 — CAMADAS + WINDY + RASTOS
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.3.1-lines.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.4.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
 TESTE:
-- /admin > Editar regata > Percurso
-- Clica "Definir linha de largada"
-- Clica no mapa no extremo A e depois no extremo B
-- Repete para a chegada
-- Arrasta A/B para corrigir
-- Adiciona bóias/waypoints normalmente
-- Guarda percurso
-- No Live, a largada e a chegada devem aparecer como linhas reais.
+- Abre o Live.
+- Clica Camadas.
+- Liga/desliga Percurso.
+- Liga/desliga Nomes dos barcos.
+- Liga Vento: deve abrir a janela Windy.
+- Seleciona uma regata.
+- Em Rasto escolhe 0,5 / 1 / 2 NM.
+- Cada barco deve apresentar um rasto da sua própria cor.
 
-Não é necessário criar a tabela course_lines manualmente.
+NOTA:
+O endpoint de rasto consulta o histórico do Traccar apenas quando a camada está ligada.
+O browser atualiza esse histórico a cada 20 segundos, para reduzir carga.

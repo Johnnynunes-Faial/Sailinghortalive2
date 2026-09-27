@@ -74,6 +74,18 @@ type LibraryBuoy = {
   updated_at?: string
 }
 
+type TrackPoint = {
+  latitude: number
+  longitude: number
+  fixTime: string | null
+}
+
+type BoatTrack = {
+  deviceId: number
+  boatName: string
+  positions: TrackPoint[]
+}
+
 const BOAT_COLORS = [
   '#e53935',
   '#1e88e5',
@@ -100,6 +112,7 @@ function PublicLiveView() {
   const mapRef = useRef<L.Map | null>(null)
   const boatMarkersRef = useRef<Map<number, L.Marker>>(new Map())
   const courseLayerRef = useRef<L.LayerGroup | null>(null)
+  const trackLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
 
   const [boats, setBoats] = useState<Boat[]>([])
@@ -108,6 +121,12 @@ function PublicLiveView() {
   const [connected, setConnected] = useState(false)
   const [course, setCourse] = useState<CoursePoint[]>([])
   const [lines, setLines] = useState<CourseLine[]>([])
+  const [showCourse, setShowCourse] = useState(true)
+  const [showNames, setShowNames] = useState(true)
+  const [showWind, setShowWind] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(false)
+  const [trackDistance, setTrackDistance] = useState<0 | 0.5 | 1 | 2>(0)
+  const [tracks, setTracks] = useState<BoatTrack[]>([])
 
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
@@ -124,6 +143,7 @@ function PublicLiveView() {
 
     mapRef.current = map
     courseLayerRef.current = L.layerGroup().addTo(map)
+    trackLayerRef.current = L.layerGroup().addTo(map)
 
     return () => {
       map.remove()
@@ -178,6 +198,50 @@ function PublicLiveView() {
   }, [selectedEventId])
 
   useEffect(() => {
+    if (
+      selectedEventId === 'general' ||
+      trackDistance === 0
+    ) {
+      setTracks([])
+      return
+    }
+
+    let active = true
+
+    async function loadTracks() {
+      try {
+        const response = await fetch(
+          `/api/events/${encodeURIComponent(selectedEventId)}/tracks?distance=${trackDistance}`,
+          { cache: 'no-store' },
+        )
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const data = await response.json() as {
+          ok?: boolean
+          tracks?: BoatTrack[]
+        }
+
+        if (active) {
+          setTracks(data.tracks ?? [])
+        }
+      } catch {
+        if (active) setTracks([])
+      }
+    }
+
+    loadTracks()
+    const timer = window.setInterval(loadTracks, 20000)
+
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [selectedEventId, trackDistance])
+
+  useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
@@ -194,7 +258,12 @@ function PublicLiveView() {
       if (!boat.position) continue
 
       const color = boatColor(boat.id)
-      const icon = makeBoatIcon(boat.name, boat.position.course, color)
+      const icon = makeBoatIcon(
+        boat.name,
+        boat.position.course,
+        color,
+        showNames,
+      )
       const marker = boatMarkersRef.current.get(boat.id)
 
       const popup = `
@@ -221,62 +290,85 @@ function PublicLiveView() {
     if (layer) {
       layer.clearLayers()
 
-      const startLine = lines.find((line) => line.line_type === 'start')
-      const finishLine = lines.find((line) => line.line_type === 'finish')
+      if (showCourse) {
+        const startLine = lines.find((line) => line.line_type === 'start')
+        const finishLine = lines.find((line) => line.line_type === 'finish')
 
-      for (const line of lines) {
-        L.polyline(
-          [
-            [line.a_latitude, line.a_longitude],
-            [line.b_latitude, line.b_longitude],
-          ],
-          {
-            weight: 5,
-            opacity: 0.95,
-            dashArray: line.line_type === 'start' ? '10 5' : undefined,
-          },
-        )
-          .addTo(layer)
-          .bindTooltip(
-            line.line_type === 'start' ? 'Linha de largada' : 'Linha de chegada',
+        for (const line of lines) {
+          L.polyline(
+            [
+              [line.a_latitude, line.a_longitude],
+              [line.b_latitude, line.b_longitude],
+            ],
+            {
+              weight: 5,
+              opacity: 0.95,
+              dashArray: line.line_type === 'start' ? '10 5' : undefined,
+            },
           )
-      }
+            .addTo(layer)
+            .bindTooltip(
+              line.line_type === 'start' ? 'Linha de largada' : 'Linha de chegada',
+            )
+        }
 
-      const routeLatLngs: [number, number][] = []
+        const routeLatLngs: [number, number][] = []
 
-      if (startLine) {
-        routeLatLngs.push(lineMidpoint(startLine))
-      }
+        if (startLine) routeLatLngs.push(lineMidpoint(startLine))
 
-      routeLatLngs.push(
-        ...course.map(
-          (point) => [point.latitude, point.longitude] as [number, number],
-        ),
-      )
+        routeLatLngs.push(
+          ...course.map(
+            (point) => [point.latitude, point.longitude] as [number, number],
+          ),
+        )
 
-      if (finishLine) {
-        routeLatLngs.push(lineMidpoint(finishLine))
-      }
+        if (finishLine) routeLatLngs.push(lineMidpoint(finishLine))
 
-      if (routeLatLngs.length > 1) {
-        L.polyline(routeLatLngs, {
-          weight: 3,
-          opacity: 0.75,
-          dashArray: '8 8',
-        }).addTo(layer)
-      }
+        if (routeLatLngs.length > 1) {
+          L.polyline(routeLatLngs, {
+            weight: 3,
+            opacity: 0.75,
+            dashArray: '8 8',
+          }).addTo(layer)
+        }
 
-      for (const point of course) {
-        L.circleMarker([point.latitude, point.longitude], {
-          radius: point.point_type === 'waypoint' ? 5 : 8,
-          weight: 2,
-          fillOpacity: 1,
-        })
-          .addTo(layer)
-          .bindTooltip(point.name || labelPointType(point.point_type), {
-            permanent: false,
-            direction: 'top',
+        for (const point of course) {
+          L.circleMarker([point.latitude, point.longitude], {
+            radius: point.point_type === 'waypoint' ? 5 : 8,
+            weight: 2,
+            fillOpacity: 1,
           })
+            .addTo(layer)
+            .bindTooltip(point.name || labelPointType(point.point_type), {
+              permanent: false,
+              direction: 'top',
+            })
+        }
+      }
+    }
+
+    const trackLayer = trackLayerRef.current
+    if (trackLayer) {
+      trackLayer.clearLayers()
+
+      if (trackDistance > 0) {
+        for (const track of tracks) {
+          if (track.positions.length < 2) continue
+
+          L.polyline(
+            track.positions.map(
+              (position) => [
+                position.latitude,
+                position.longitude,
+              ] as [number, number],
+            ),
+            {
+              weight: 3,
+              opacity: 0.62,
+              color: boatColor(track.deviceId),
+            },
+          ).addTo(trackLayer)
+        }
       }
     }
 
@@ -309,7 +401,16 @@ function PublicLiveView() {
 
       lastFitKeyRef.current = fitKey
     }
-  }, [boats, course, lines, selectedEventId])
+  }, [
+    boats,
+    course,
+    lines,
+    selectedEventId,
+    showCourse,
+    showNames,
+    trackDistance,
+    tracks,
+  ])
 
   function showAll() {
     const map = mapRef.current
@@ -366,6 +467,13 @@ function PublicLiveView() {
             {connected ? 'Traccar online' : 'Traccar offline'}
           </div>
 
+          <button
+            className="layers-button"
+            onClick={() => setLayersOpen((value) => !value)}
+          >
+            Camadas
+          </button>
+
           <button className="show-all-button" onClick={showAll}>
             Mostrar todos
           </button>
@@ -374,6 +482,88 @@ function PublicLiveView() {
 
       <section className="map-container">
         <div ref={mapElementRef} className="map" />
+
+        {layersOpen && (
+          <div className="layers-panel">
+            <div className="layers-title">Camadas</div>
+
+            <label className="layer-row">
+              <span>Percurso</span>
+              <input
+                type="checkbox"
+                checked={showCourse}
+                onChange={(event) => setShowCourse(event.target.checked)}
+              />
+            </label>
+
+            <label className="layer-row">
+              <span>Nomes dos barcos</span>
+              <input
+                type="checkbox"
+                checked={showNames}
+                onChange={(event) => setShowNames(event.target.checked)}
+              />
+            </label>
+
+            <div className="layer-group">
+              <div className="layer-label">Rasto dos barcos</div>
+
+              <select
+                className="layer-select"
+                value={trackDistance}
+                disabled={selectedEventId === 'general'}
+                onChange={(event) =>
+                  setTrackDistance(
+                    Number(event.target.value) as 0 | 0.5 | 1 | 2,
+                  )
+                }
+              >
+                <option value={0}>Desligado</option>
+                <option value={0.5}>0,5 NM</option>
+                <option value={1}>1 NM</option>
+                <option value={2}>2 NM</option>
+              </select>
+
+              {selectedEventId === 'general' && (
+                <div className="layer-hint">
+                  Seleciona uma regata para usar o rasto.
+                </div>
+              )}
+            </div>
+
+            <label className="layer-row">
+              <span>Vento (Windy)</span>
+              <input
+                type="checkbox"
+                checked={showWind}
+                onChange={(event) => setShowWind(event.target.checked)}
+              />
+            </label>
+          </div>
+        )}
+
+        {showWind && (
+          <div className="windy-panel">
+            <div className="windy-header">
+              <strong>Vento</strong>
+              <button
+                type="button"
+                className="windy-close"
+                onClick={() => setShowWind(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <iframe
+              title="Windy"
+              className="windy-frame"
+              src="https://embed.windy.com/embed2.html?lat=38.535&lon=-28.630&detailLat=38.535&detailLon=-28.630&width=650&height=450&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1"
+              loading="lazy"
+            />
+          </div>
+        )}
+
         <div className="boat-counter">{boats.length} barcos ativos</div>
       </section>
     </main>
@@ -1463,7 +1653,12 @@ function CourseEditor({ event }: { event: EventItem }) {
   )
 }
 
-function makeBoatIcon(name: string, course: number, color: string) {
+function makeBoatIcon(
+  name: string,
+  course: number,
+  color: string,
+  showName: boolean,
+) {
   return L.divIcon({
     className: 'boat-marker-wrapper',
     html: `
@@ -1476,7 +1671,7 @@ function makeBoatIcon(name: string, course: number, color: string) {
             <path d="M15 8 L8 31 L15 27 Z" fill="rgba(255,255,255,.18)"/>
           </svg>
         </div>
-        <div class="boat-name">${escapeHtml(name)}</div>
+        ${showName ? `<div class="boat-name">${escapeHtml(name)}</div>` : ''}
       </div>
     `,
     iconSize: [130, 66],
