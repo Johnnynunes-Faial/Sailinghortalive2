@@ -1,23 +1,14 @@
-# Sailing Horta Live 2 — v0.7 Replay básico
+# Sailing Horta Live 2 — v0.7.1
 
-Mantém todas as funcionalidades anteriores e acrescenta:
+Ajustes ao Live:
 
-- página pública /replay;
-- lista de regatas terminadas;
-- carregamento do histórico GPS diretamente do Traccar;
-- conversão correta das horas Atlantic/Azores para UTC;
-- percurso histórico e linhas de largada/chegada;
-- player Play/Pausa;
-- velocidades 1x / 5x / 10x / 30x;
-- barra temporal;
-- interpolação suave da posição e rumo dos barcos;
-- até 2000 pontos por barco para manter o Replay leve.
+- os ícones dos barcos ficam ligeiramente mais pequenos;
+- o seletor central do Live mostra apenas regatas:
+  - Agendadas
+  - Em direto
+- regatas Terminadas deixam de aparecer no seletor central;
+- regatas Terminadas continuam disponíveis apenas em Histórico / Replay;
+- o Admin continua a mostrar todas as regatas;
+- se uma regata terminar enquanto o Live está aberto, o site volta defensivamente para Modo Geral quando a lista é atualizada.
 
-Para uma regata antiga:
-1. cria o evento com início e fim;
-2. associa os participantes;
-3. cria o percurso no Admin, mesmo depois da prova;
-4. termina/marca a regata como concluída;
-5. abre /replay.
-
-O histórico GPS vem do Traccar para o intervalo do evento.
+Mantém todo o Replay da v0.7.

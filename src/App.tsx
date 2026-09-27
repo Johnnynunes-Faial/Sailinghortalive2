@@ -197,11 +197,16 @@ function PublicLiveView() {
     fetch('/api/events', { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
-        const loadedEvents = data.events ?? []
-        setEvents(loadedEvents)
+        const loadedEvents = (data.events ?? []) as EventItem[]
 
-        const liveEvents = loadedEvents.filter(
-          (event: EventItem) => event.status === 'live',
+        const visibleEvents = loadedEvents.filter(
+          (event) => event.status !== 'completed',
+        )
+
+        setEvents(visibleEvents)
+
+        const liveEvents = visibleEvents.filter(
+          (event) => event.status === 'live',
         )
 
         if (
@@ -214,6 +219,19 @@ function PublicLiveView() {
       })
       .catch(() => setEvents([]))
   }, [])
+
+  useEffect(() => {
+    if (
+      selectedEventId !== 'general' &&
+      !events.some((event) => event.id === selectedEventId)
+    ) {
+      setSelectedEventId('general')
+      setCourse([])
+      setLines([])
+      setBoats([])
+      lastFitKeyRef.current = ''
+    }
+  }, [events, selectedEventId])
 
   useEffect(() => {
     let active = true
@@ -3157,8 +3175,8 @@ function makeBoatIcon(
           style="transform: rotate(${course || 0}deg)"
         >
           <svg
-            width="42"
-            height="58"
+            width="34"
+            height="47"
             viewBox="0 0 42 58"
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
@@ -3208,8 +3226,8 @@ function makeBoatIcon(
           : ''}
       </div>
     `,
-    iconSize: [132, 78],
-    iconAnchor: [66, 28],
+    iconSize: [118, 68],
+    iconAnchor: [59, 23],
   })
 }
 
