@@ -2284,7 +2284,7 @@ function makeBoatIcon(
             xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
           >
-            <!-- casco visto de cima -->
+            <!-- casco -->
             <path
               d="M21 3
                  C16 10 14 19 13 31
@@ -2299,44 +2299,27 @@ function makeBoatIcon(
               stroke-linejoin="round"
             />
 
-            <!-- mastro -->
+            <!-- linha central muito discreta -->
             <line
               x1="21"
-              y1="8"
+              y1="7"
               x2="21"
-              y2="47"
-              stroke="#ffffff"
-              stroke-width="1.7"
+              y2="49"
+              stroke="rgba(255,255,255,.58)"
+              stroke-width="1.2"
               stroke-linecap="round"
             />
 
-            <!-- vela principal -->
+            <!-- vela curvada vista de cima -->
             <path
-              d="M19.5 11 L8 36 L19.5 32 Z"
-              fill="${color}"
+              d="M21 12
+                 C27 19 29 28 28 35
+                 C27 41 24 45 21.5 47"
+              fill="none"
               stroke="white"
-              stroke-width="1.5"
+              stroke-width="2.4"
+              stroke-linecap="round"
               stroke-linejoin="round"
-            />
-
-            <!-- genoa / vela de proa -->
-            <path
-              d="M22.5 14 L34 33 L22.5 30 Z"
-              fill="${color}"
-              fill-opacity="0.82"
-              stroke="white"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-            />
-
-            <!-- cockpit -->
-            <rect
-              x="17.5"
-              y="39"
-              width="7"
-              height="8"
-              rx="2.5"
-              fill="rgba(255,255,255,.75)"
             />
           </svg>
         </div>

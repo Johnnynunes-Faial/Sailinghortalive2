@@ -1,17 +1,11 @@
-ATUALIZAÇÃO v0.6.1 — CORREÇÃO DE SCROLL MOBILE
+ATUALIZAÇÃO v0.6.2 — NOVO ÍCONE DE BARCO
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6.1-scroll-fix.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6.2-icone-barco.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
+6. Atualiza o Live com refresh forçado se necessário.
 
-TESTE NO TELEMÓVEL:
-- /admin/regata
-- abre Participantes
-- desliza para cima/baixo pela lista
-- volta ao topo
-- abre Percurso
-- desliza para cima/baixo até à biblioteca e às marcas
-
-O Live público continua sem scroll de página.
+O único objetivo desta versão é alterar o desenho do barco.
+As restantes funcionalidades mantêm-se.
