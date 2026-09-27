@@ -1,17 +1,22 @@
-# Sailing Horta Live 2 — v0.9.3
+# Sailing Horta Live 2 — v0.10
 
-Correção do Replay após introdução da lista de regatas.
+## Meteorologia rápida no Live
+Indicador compacto no topo com temperatura, vento médio em nós, direção e rajada.
 
-Problema:
-- na v0.9.2 o mapa só era inicializado no primeiro carregamento da página;
-- como nessa altura aparecia apenas a lista de regatas, o elemento do mapa ainda não existia;
-- depois de escolher uma regata, o mapa não era criado.
+A leitura corresponde ao centro da área visível do mapa e usa Open-Meteo.
+Atualiza:
+- ao abrir o mapa;
+- quando deslocas o mapa para outra zona, depois de uma pequena pausa;
+- automaticamente a cada 10 minutos.
 
-Correção:
-- o mapa é agora inicializado quando uma regata é selecionada;
-- é destruído ao voltar à lista;
-- volta a ser criado corretamente ao escolher outra regata;
-- o mapa faz `invalidateSize()` depois de montar;
-- o percurso e os barcos são desenhados assim que mapa + dados estão disponíveis.
+Movimentos pequenos dentro da mesma zona reutilizam a leitura recente para evitar pedidos desnecessários.
 
-Mantém todas as melhorias da v0.9.2.
+## Rasto dos barcos nas Camadas
+O rasto passou a ter o mesmo aspeto das restantes camadas:
+- checkbox simples;
+- cinzento/desativado sem uma regata em direto selecionada;
+- disponível quando selecionas uma regata Live;
+- mostra até aos últimos 2 NM;
+- atualização a cada 20 segundos.
+
+Mantém todas as funcionalidades da v0.9.3.

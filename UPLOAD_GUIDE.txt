@@ -1,12 +1,18 @@
-v0.9.3 — CORREÇÃO DO MAPA NO REPLAY
+v0.10 — METEOROLOGIA + CAMADA DE RASTOS
 
-Carrega por cima da v0.9.2 como habitual.
+Carrega por cima da v0.9.3 como habitual.
 
-TESTE:
-1. Abrir Histórico / Replay.
-2. Deve aparecer a lista de regatas.
-3. Escolher uma regata.
-4. Deve aparecer o mapa, percurso e barcos.
-5. Clicar “Escolher outra regata”.
-6. Escolher outra.
-7. O mapa deve voltar a carregar normalmente.
+TESTE METEO
+1. Abrir o Live.
+2. Confirmar temperatura, vento e rajada no topo.
+3. Arrastar o mapa para outra zona/ilha.
+4. A leitura deve atualizar depois de uma pequena pausa.
+5. Renova também automaticamente a cada 10 minutos.
+
+TESTE RASTOS
+1. Em Modo Geral, “Rasto dos barcos” deve estar cinzento/desativado.
+2. Selecionar uma regata EM DIRETO.
+3. O checkbox deve ficar disponível.
+4. Ativar e confirmar o aparecimento do rasto.
+5. Desativar e confirmar que desaparece.
+6. Ao sair da regata Live, o rasto deve desligar automaticamente.

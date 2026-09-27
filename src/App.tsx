@@ -57,6 +57,30 @@ type LiveResponse = {
   lines?: CourseLine[]
 }
 
+type MapWeather = {
+  temperature: number
+  windSpeed: number
+  windDirection: number
+  windGust: number
+  latitude: number
+  longitude: number
+  updatedAt: number
+}
+
+function windCardinal(degrees: number) {
+  const directions = [
+    'N', 'NE', 'E', 'SE',
+    'S', 'SW', 'W', 'NW',
+  ]
+
+  const normalized =
+    ((degrees % 360) + 360) % 360
+
+  return directions[
+    Math.round(normalized / 45) % 8
+  ]
+}
+
 type AdminDevice = {
   id: number
   name: string
@@ -157,6 +181,9 @@ function PublicLiveView() {
   const courseLayerRef = useRef<L.LayerGroup | null>(null)
   const trackLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
+  const weatherMoveTimerRef = useRef<number | null>(null)
+  const weatherLastKeyRef = useRef('')
+  const weatherLastFetchRef = useRef(0)
 
   const [boats, setBoats] = useState<Boat[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
@@ -168,8 +195,114 @@ function PublicLiveView() {
   const [showNames, setShowNames] = useState(true)
   const [showWind, setShowWind] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
-  const [trackDistance, setTrackDistance] = useState<0 | 0.5 | 1 | 2>(0)
+  const [showTracks, setShowTracks] = useState(false)
   const [tracks, setTracks] = useState<BoatTrack[]>([])
+  const [weather, setWeather] = useState<MapWeather | null>(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+
+  const tracksAvailable =
+    selectedEventId !== 'general' &&
+    events.some(
+      (event) =>
+        event.id === selectedEventId &&
+        event.status === 'live',
+    )
+
+  async function loadWeatherForMap(
+    lat: number,
+    lon: number,
+    force = false,
+  ) {
+    const key =
+      `${lat.toFixed(2)},${lon.toFixed(2)}`
+
+    const now = Date.now()
+
+    if (
+      !force &&
+      weatherLastKeyRef.current === key &&
+      now - weatherLastFetchRef.current <
+        10 * 60 * 1000
+    ) {
+      return
+    }
+
+    weatherLastKeyRef.current = key
+    weatherLastFetchRef.current = now
+    setWeatherLoading(true)
+
+    try {
+      const params = new URLSearchParams({
+        latitude: lat.toFixed(4),
+        longitude: lon.toFixed(4),
+        current:
+          'temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+        wind_speed_unit: 'kn',
+        timezone: 'auto',
+      })
+
+      const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
+        { cache: 'no-store' },
+      )
+
+      if (!response.ok) {
+        throw new Error(
+          `Weather HTTP ${response.status}`,
+        )
+      }
+
+      const data = await response.json() as {
+        latitude?: number
+        longitude?: number
+        current?: {
+          temperature_2m?: number
+          wind_speed_10m?: number
+          wind_direction_10m?: number
+          wind_gusts_10m?: number
+        }
+      }
+
+      const current = data.current
+
+      if (
+        !current ||
+        !Number.isFinite(
+          Number(current.temperature_2m),
+        ) ||
+        !Number.isFinite(
+          Number(current.wind_speed_10m),
+        ) ||
+        !Number.isFinite(
+          Number(current.wind_direction_10m),
+        )
+      ) {
+        throw new Error(
+          'Resposta meteorológica inválida',
+        )
+      }
+
+      setWeather({
+        temperature:
+          Number(current.temperature_2m),
+        windSpeed:
+          Number(current.wind_speed_10m),
+        windDirection:
+          Number(current.wind_direction_10m),
+        windGust:
+          Number(current.wind_gusts_10m ?? 0),
+        latitude:
+          Number(data.latitude ?? lat),
+        longitude:
+          Number(data.longitude ?? lon),
+        updatedAt: Date.now(),
+      })
+    } catch {
+      // Mantém a última leitura válida.
+    } finally {
+      setWeatherLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
@@ -188,7 +321,73 @@ function PublicLiveView() {
     courseLayerRef.current = L.layerGroup().addTo(map)
     trackLayerRef.current = L.layerGroup().addTo(map)
 
+    const initialCenter =
+      map.getCenter()
+
+    loadWeatherForMap(
+      initialCenter.lat,
+      initialCenter.lng,
+      true,
+    )
+
+    const handleWeatherMove = () => {
+      if (
+        weatherMoveTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          weatherMoveTimerRef.current,
+        )
+      }
+
+      weatherMoveTimerRef.current =
+        window.setTimeout(() => {
+          const center =
+            map.getCenter()
+
+          loadWeatherForMap(
+            center.lat,
+            center.lng,
+          )
+        }, 800)
+    }
+
+    map.on(
+      'moveend',
+      handleWeatherMove,
+    )
+
+    const weatherTimer =
+      window.setInterval(() => {
+        const center =
+          map.getCenter()
+
+        loadWeatherForMap(
+          center.lat,
+          center.lng,
+          true,
+        )
+      }, 10 * 60 * 1000)
+
     return () => {
+      map.off(
+        'moveend',
+        handleWeatherMove,
+      )
+
+      window.clearInterval(
+        weatherTimer,
+      )
+
+      if (
+        weatherMoveTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          weatherMoveTimerRef.current,
+        )
+      }
+
       map.remove()
       mapRef.current = null
     }
@@ -275,8 +474,8 @@ function PublicLiveView() {
 
   useEffect(() => {
     if (
-      selectedEventId === 'general' ||
-      trackDistance === 0
+      !tracksAvailable ||
+      !showTracks
     ) {
       setTracks([])
       return
@@ -287,7 +486,7 @@ function PublicLiveView() {
     async function loadTracks() {
       try {
         const response = await fetch(
-          `/api/events/${encodeURIComponent(selectedEventId)}/tracks?distance=${trackDistance}`,
+          `/api/events/${encodeURIComponent(selectedEventId)}/tracks?distance=2`,
           { cache: 'no-store' },
         )
 
@@ -315,7 +514,18 @@ function PublicLiveView() {
       active = false
       window.clearInterval(timer)
     }
-  }, [selectedEventId, trackDistance])
+  }, [
+    selectedEventId,
+    tracksAvailable,
+    showTracks,
+  ])
+
+  useEffect(() => {
+    if (!tracksAvailable) {
+      setShowTracks(false)
+      setTracks([])
+    }
+  }, [tracksAvailable])
 
   useEffect(() => {
     const map = mapRef.current
@@ -493,7 +703,7 @@ function PublicLiveView() {
     if (trackLayer) {
       trackLayer.clearLayers()
 
-      if (trackDistance > 0) {
+      if (showTracks) {
         for (const track of tracks) {
           if (track.positions.length < 2) continue
 
@@ -550,7 +760,7 @@ function PublicLiveView() {
     selectedEventId,
     showCourse,
     showNames,
-    trackDistance,
+    showTracks,
     tracks,
   ])
 
@@ -606,6 +816,57 @@ function PublicLiveView() {
         </div>
 
         <div className="top-actions">
+          <div
+            className={
+              weather
+                ? 'weather-pill'
+                : 'weather-pill loading'
+            }
+            title="Meteorologia no centro da área do mapa · Open-Meteo"
+          >
+            {weather ? (
+              <>
+                <span className="weather-temp">
+                  {Math.round(
+                    weather.temperature,
+                  )}
+                  °C
+                </span>
+
+                <span className="weather-separator">
+                  ·
+                </span>
+
+                <span className="weather-wind">
+                  💨{' '}
+                  {Math.round(
+                    weather.windSpeed,
+                  )}
+                  {' '}
+                  kn{' '}
+                  {windCardinal(
+                    weather.windDirection,
+                  )}
+                </span>
+
+                <span className="weather-gust">
+                  · Raj.{' '}
+                  {Math.round(
+                    weather.windGust,
+                  )}
+                  {' '}
+                  kn
+                </span>
+              </>
+            ) : (
+              <span>
+                {weatherLoading
+                  ? 'Meteo…'
+                  : 'Meteo —'}
+              </span>
+            )}
+          </div>
+
           <div className={connected ? 'connection online' : 'connection offline'}>
             <span className="status-dot" />
             {connected ? 'Traccar online' : 'Traccar offline'}
@@ -656,31 +917,33 @@ function PublicLiveView() {
               />
             </label>
 
-            <div className="layer-group">
-              <div className="layer-label">Rasto dos barcos</div>
-
-              <select
-                className="layer-select"
-                value={trackDistance}
-                disabled={selectedEventId === 'general'}
+            <label
+              className={
+                tracksAvailable
+                  ? 'layer-row'
+                  : 'layer-row disabled'
+              }
+              title={
+                tracksAvailable
+                  ? 'Mostrar os últimos 2 NM de rasto dos barcos'
+                  : 'Disponível quando estiver selecionada uma regata em direto'
+              }
+            >
+              <span>Rasto dos barcos</span>
+              <input
+                type="checkbox"
+                checked={
+                  tracksAvailable &&
+                  showTracks
+                }
+                disabled={!tracksAvailable}
                 onChange={(event) =>
-                  setTrackDistance(
-                    Number(event.target.value) as 0 | 0.5 | 1 | 2,
+                  setShowTracks(
+                    event.target.checked,
                   )
                 }
-              >
-                <option value={0}>Desligado</option>
-                <option value={0.5}>0,5 NM</option>
-                <option value={1}>1 NM</option>
-                <option value={2}>2 NM</option>
-              </select>
-
-              {selectedEventId === 'general' && (
-                <div className="layer-hint">
-                  Seleciona uma regata para usar o rasto.
-                </div>
-              )}
-            </div>
+              />
+            </label>
 
             <label className="layer-row">
               <span>Vento (Windy)</span>

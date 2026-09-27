@@ -96,6 +96,35 @@ button {
   background: #eef3f6;
 }
 
+
+.weather-pill {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eef3f6;
+  color: #102331;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.weather-pill.loading {
+  color: #73848e;
+}
+
+.weather-temp,
+.weather-wind,
+.weather-gust {
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-separator {
+  color: #9aa8b0;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
@@ -670,6 +699,10 @@ button {
     grid-template-columns: minmax(160px, auto) 1fr;
   }
 
+  .top-actions {
+    flex-wrap: wrap;
+  }
+
   .event-controls {
     order: 3;
     grid-column: 1 / -1;
@@ -694,6 +727,16 @@ button {
     padding: 8px 10px;
     gap: 8px;
     grid-template-columns: 1fr auto;
+  }
+
+  .weather-pill {
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .weather-gust {
+    display: none;
   }
 
   .brand-small {
@@ -845,6 +888,16 @@ button {
 
 .layer-row:first-of-type {
   border-top: 0;
+}
+
+
+.layer-row.disabled {
+  color: #9aa6ad;
+  cursor: not-allowed;
+}
+
+.layer-row.disabled input {
+  opacity: .45;
 }
 
 .layer-group {
