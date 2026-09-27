@@ -478,7 +478,7 @@ function AdminView() {
     try {
       const response =
         await fetch(
-          '/api/admin/events',
+          '/admin/api/events',
           {
             method: 'POST',
             headers: {
