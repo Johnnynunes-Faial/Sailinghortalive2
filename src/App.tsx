@@ -1115,7 +1115,32 @@ function ReplayView() {
           position.longitude,
         ])
 
-        existingMarker.setIcon(icon)
+        const markerWithState =
+          existingMarker as L.Marker & {
+            __showReplayNames?: boolean
+          }
+
+        if (
+          markerWithState.__showReplayNames !==
+          showReplayNames
+        ) {
+          existingMarker.setIcon(icon)
+          markerWithState.__showReplayNames =
+            showReplayNames
+        } else {
+          const element =
+            existingMarker.getElement()
+
+          const boatWrap =
+            element?.querySelector(
+              '.boat-svg-wrap',
+            ) as HTMLElement | null
+
+          if (boatWrap) {
+            boatWrap.style.transform =
+              `rotate(${position.course || 0}deg)`
+          }
+        }
       } else {
         const marker = L.marker(
           [
@@ -1127,6 +1152,13 @@ function ReplayView() {
             riseOnHover: true,
           },
         ).addTo(boatsLayer)
+
+        ;(
+          marker as L.Marker & {
+            __showReplayNames?: boolean
+          }
+        ).__showReplayNames =
+          showReplayNames
 
         marker.on('click', () => {
           setSelectedReplayBoatId(
