@@ -722,6 +722,30 @@ function PublicLiveView() {
 }
 
 
+function formatEventDateForReplay(
+  value: string,
+) {
+  const parts =
+    value.match(
+      /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/,
+    )
+
+  if (!parts) {
+    return value
+  }
+
+  const [
+    ,
+    year,
+    month,
+    day,
+    hour,
+    minute,
+  ] = parts
+
+  return `${day}/${month}/${year} · ${hour}:${minute}`
+}
+
 function ReplayView() {
   const mapElementRef =
     useRef<HTMLDivElement | null>(null)
@@ -804,15 +828,6 @@ function ReplayView() {
           )
 
         setEvents(completed)
-
-        if (
-          completed.length > 0 &&
-          !selectedEventId
-        ) {
-          setSelectedEventId(
-            completed[0].id,
-          )
-        }
       })
       .catch(() => {
         setEvents([])
@@ -862,6 +877,15 @@ function ReplayView() {
   useEffect(() => {
     if (!selectedEventId) {
       setReplayData(null)
+      setPlaying(false)
+      setSelectedReplayBoatId(null)
+
+      courseLayerRef.current?.clearLayers()
+      boatsLayerRef.current?.clearLayers()
+      replayTrailLayerRef.current?.clearLayers()
+      replayBoatMarkersRef.current.clear()
+      replayBoatCourseRef.current.clear()
+
       return
     }
 
@@ -1413,32 +1437,33 @@ function ReplayView() {
       </header>
 
       <div className="replay-toolbar">
-        <select
-          className="replay-event-select"
-          value={selectedEventId}
-          onChange={(event) =>
-            setSelectedEventId(
-              event.target.value,
-            )
-          }
-        >
-          {events.length === 0 && (
-            <option value="">
-              Sem regatas terminadas
-            </option>
-          )}
+        {selectedEventId ? (
+          <>
+            <button
+              type="button"
+              className="replay-event-list-button"
+              onClick={() =>
+                setSelectedEventId('')
+              }
+            >
+              ← Escolher outra regata
+            </button>
 
-          {events.map(
-            (event) => (
-              <option
-                key={event.id}
-                value={event.id}
-              >
-                {event.name}
-              </option>
-            ),
-          )}
-        </select>
+            <div className="replay-selected-event">
+              {
+                events.find(
+                  (event) =>
+                    event.id ===
+                    selectedEventId,
+                )?.name
+              }
+            </div>
+          </>
+        ) : (
+          <div className="replay-toolbar-title">
+            Escolhe uma regata para ver o Replay
+          </div>
+        )}
 
         {replayData && (
           <div className="replay-summary">
@@ -1455,6 +1480,46 @@ function ReplayView() {
         )}
       </div>
 
+      {!selectedEventId ? (
+        <section className="replay-event-picker">
+          {events.length === 0 ? (
+            <div className="replay-event-empty">
+              Ainda não existem regatas terminadas no Histórico.
+            </div>
+          ) : (
+            <div className="replay-event-list">
+              {events.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  className="replay-event-card"
+                  onClick={() =>
+                    setSelectedEventId(
+                      event.id,
+                    )
+                  }
+                >
+                  <span className="replay-event-card-name">
+                    {event.name}
+                  </span>
+
+                  <span className="replay-event-card-date">
+                    {event.start_time
+                      ? formatEventDateForReplay(
+                          event.start_time,
+                        )
+                      : 'Data não definida'}
+                  </span>
+
+                  <span className="replay-event-card-open">
+                    Abrir Replay →
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
       <section className="replay-map-container">
         <div
           ref={mapElementRef}
@@ -1537,6 +1602,7 @@ function ReplayView() {
             </div>
           )}
       </section>
+      )}
 
       {replayData && (
         <section className="replay-player">

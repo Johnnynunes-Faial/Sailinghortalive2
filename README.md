@@ -1,22 +1,15 @@
-# Sailing Horta Live 2 — v0.9.1
+# Sailing Horta Live 2 — v0.9.2
 
-Duas melhorias:
+Melhoria da entrada no Histórico / Replay.
 
-## 1. Alinhamento do rasto com o barco
-O SVG do barco tinha dimensões visuais diferentes do contentor usado pelo Leaflet.
-Isso fazia parecer que o rasto terminava alguns pixels ao lado do barco.
+Antes:
+- ao abrir Replay, a primeira regata terminada era carregada automaticamente.
 
 Agora:
-- o centro visual do barco coincide com a posição GPS;
-- aplica-se tanto ao Live como ao Replay;
-- o ponto de rotação também coincide com o centro do SVG.
+- ao abrir Replay aparece primeiro a lista das regatas terminadas;
+- cada regata mostra nome e data/hora de início;
+- só é carregado o histórico do Traccar depois de escolheres uma regata;
+- dentro do Replay existe “Escolher outra regata” para voltar à lista;
+- funciona da mesma forma em desktop e mobile.
 
-## 2. Rastos históricos no editor de percurso do Admin
-No Admin > evento > Percurso existe agora:
-- "Mostrar rastos históricos";
-- carrega os tracks dessa regata através do histórico do Traccar;
-- cada barco aparece com a sua cor;
-- podes arrastar as bóias, waypoints e extremos das linhas sobre o rasto;
-- depois "Guardar percurso" grava as novas posições.
-
-Isto permite reconstruir/afinar posteriormente o percurso de uma regata usando o track real como referência.
+Mantém todas as melhorias da v0.9.1.

@@ -1,14 +1,11 @@
-v0.9.1 — RASTO ALINHADO + HISTÓRICO NO ADMIN
+v0.9.2 — SELEÇÃO DE REGATA ANTES DO REPLAY
 
-Carrega por cima da v0.9 como habitual.
+Carrega por cima da v0.9.1 como habitual.
 
-TESTE REPLAY/LIVE
-- confirma que o rasto termina no centro do barco e não alguns pixels ao lado.
-
-TESTE ADMIN
-1. Admin > escolher uma regata antiga > Percurso.
-2. Clicar "Mostrar rastos históricos".
-3. Devem aparecer os rastos dos barcos no mapa.
-4. Arrastar uma bóia/waypoint ou extremos das linhas para a posição correta.
-5. Clicar "Guardar percurso".
-6. Abrir o Replay e confirmar o percurso corrigido.
+TESTE:
+1. Abre Histórico / Replay.
+2. Não deve carregar nenhuma regata automaticamente.
+3. Deve aparecer a lista de regatas terminadas.
+4. Escolhe uma regata.
+5. Só então deve carregar mapa, percurso e histórico dos barcos.
+6. Clica “Escolher outra regata” e confirma que regressa à lista.
