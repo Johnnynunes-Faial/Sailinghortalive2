@@ -40,7 +40,8 @@ async function traccarFetch(
   env: Env,
   path: string,
 ): Promise<Response> {
-  const baseUrl = env.TRACCAR_URL.replace(/\/+$/, '')
+  const baseUrl =
+    env.TRACCAR_URL.replace(/\/+$/, '')
 
   const auth = btoa(
     `${env.TRACCAR_USERNAME}:${env.TRACCAR_PASSWORD}`,
@@ -61,10 +62,7 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url)
 
-    // =========================================================
     // HEALTH
-    // =========================================================
-
     if (url.pathname === '/api/health') {
       return json({
         ok: true,
@@ -72,10 +70,7 @@ export default {
       })
     }
 
-    // =========================================================
-    // EVENTS - LISTAR REGATAS
-    // =========================================================
-
+    // LISTA PÚBLICA DE REGATAS
     if (
       url.pathname === '/api/events' &&
       request.method === 'GET'
@@ -114,34 +109,35 @@ export default {
       }
     }
 
-    // =========================================================
-    // EVENTS - CRIAR REGATA
-    // =========================================================
-
+    // CRIAÇÃO ADMINISTRATIVA DE REGATA
     if (
-      url.pathname === '/api/events' &&
+      url.pathname === '/api/admin/events' &&
       request.method === 'POST'
     ) {
       try {
-        const body = await request.json() as {
-          name?: string
-          startTime?: string
-          endTime?: string
-        }
+        const body =
+          await request.json() as {
+            name?: string
+            startTime?: string
+            endTime?: string
+          }
 
-        const name = body.name?.trim()
+        const name =
+          body.name?.trim()
 
         if (!name) {
           return json(
             {
               ok: false,
-              error: 'Nome da regata obrigatório',
+              error:
+                'Nome da regata obrigatório',
             },
             400,
           )
         }
 
-        const id = crypto.randomUUID()
+        const id =
+          crypto.randomUUID()
 
         await env.DB
           .prepare(`
@@ -183,18 +179,21 @@ export default {
       }
     }
 
-    // =========================================================
-    // LIVE - TRACCAR
-    // =========================================================
-
+    // LIVE TRACCAR
     if (url.pathname === '/api/live') {
       try {
         const [
           devicesResponse,
           positionsResponse,
         ] = await Promise.all([
-          traccarFetch(env, '/api/devices'),
-          traccarFetch(env, '/api/positions'),
+          traccarFetch(
+            env,
+            '/api/devices',
+          ),
+          traccarFetch(
+            env,
+            '/api/positions',
+          ),
         ])
 
         if (!devicesResponse.ok) {
@@ -202,7 +201,8 @@ export default {
             {
               ok: false,
               source: 'devices',
-              status: devicesResponse.status,
+              status:
+                devicesResponse.status,
             },
             502,
           )
@@ -213,7 +213,8 @@ export default {
             {
               ok: false,
               source: 'positions',
-              status: positionsResponse.status,
+              status:
+                positionsResponse.status,
             },
             502,
           )
@@ -225,24 +226,28 @@ export default {
         const positions =
           (await positionsResponse.json()) as TraccarPosition[]
 
-        const positionByDevice = new Map(
-          positions.map((position) => [
-            position.deviceId,
-            position,
-          ]),
-        )
+        const positionByDevice =
+          new Map(
+            positions.map(
+              (position) => [
+                position.deviceId,
+                position,
+              ],
+            ),
+          )
 
-        // Um barco deixa de aparecer se a posição tiver
-        // mais de 10 minutos.
         const MAX_POSITION_AGE_MS =
           10 * 60 * 1000
 
-        const now = Date.now()
+        const now =
+          Date.now()
 
         const boats = devices
           .map((device) => {
             const position =
-              positionByDevice.get(device.id)
+              positionByDevice.get(
+                device.id,
+              )
 
             if (!position) {
               return null
@@ -260,11 +265,14 @@ export default {
 
             const ageMs =
               now -
-              new Date(positionTime).getTime()
+              new Date(
+                positionTime,
+              ).getTime()
 
             if (
               !Number.isFinite(ageMs) ||
-              ageMs > MAX_POSITION_AGE_MS
+              ageMs >
+                MAX_POSITION_AGE_MS
             ) {
               return null
             }
@@ -272,11 +280,14 @@ export default {
             return {
               id: device.id,
               name: device.name,
-              uniqueId: device.uniqueId,
+              uniqueId:
+                device.uniqueId,
               status:
-                device.status ?? 'unknown',
+                device.status ??
+                'unknown',
               lastUpdate:
-                device.lastUpdate ?? null,
+                device.lastUpdate ??
+                null,
 
               position: {
                 latitude:
@@ -293,7 +304,9 @@ export default {
             }
           })
           .filter(
-            (boat): boat is NonNullable<
+            (
+              boat,
+            ): boat is NonNullable<
               typeof boat
             > => boat !== null,
           )
@@ -317,10 +330,6 @@ export default {
         )
       }
     }
-
-    // =========================================================
-    // ROTA NÃO ENCONTRADA
-    // =========================================================
 
     return json(
       {
