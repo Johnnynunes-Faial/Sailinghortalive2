@@ -1,0 +1,17 @@
+COMO USAR ESTE ZIP
+
+1. Descompacta o ZIP no Mac.
+2. O conteúdo deve ficar na raiz do repositório GitHub Sailinghortalive2.
+3. Se fores substituir ficheiros manualmente no GitHub, usa exatamente os ficheiros/pastas deste ZIP.
+4. Não coloques passwords no código.
+5. No Cloudflare Worker mantém os secrets:
+   TRACCAR_USERNAME
+   TRACCAR_PASSWORD
+6. Cloudflare Access deve proteger:
+   sailinghortalive.com/admin
+   sailinghortalive.com/admin/*
+7. Depois de atualizar o repositório, o Cloudflare fará novo deploy automaticamente.
+
+CORREÇÃO IMPORTANTE INCLUÍDA
+O wrangler.jsonc inclui /admin/api/* em run_worker_first.
+Sem isso, pedidos para /admin/api/events podem ser tratados como ficheiros estáticos em vez de chegarem ao Worker.

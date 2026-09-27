@@ -9,7 +9,6 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "latest",
     "@types/leaflet": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

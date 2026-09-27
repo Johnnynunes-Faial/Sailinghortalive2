@@ -63,9 +63,7 @@ function PublicLiveView() {
     useRef<L.Map | null>(null)
 
   const markersRef =
-    useRef<Map<number, L.Marker>>(
-      new Map(),
-    )
+    useRef<Map<number, L.Marker>>(new Map())
 
   const initialFitDoneRef =
     useRef(false)
@@ -130,6 +128,12 @@ function PublicLiveView() {
             cache: 'no-store',
           })
 
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}`,
+          )
+        }
+
         const data =
           (await response.json()) as LiveResponse
 
@@ -164,6 +168,12 @@ function PublicLiveView() {
         await fetch('/api/events', {
           cache: 'no-store',
         })
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}`,
+        )
+      }
 
       const data =
         (await response.json()) as EventsResponse
@@ -208,12 +218,8 @@ function PublicLiveView() {
       }
     }
 
-    for (
-      const boat
-      of positionedBoats
-    ) {
-      const position =
-        boat.position!
+    for (const boat of positionedBoats) {
+      const position = boat.position!
 
       const icon =
         L.divIcon({
@@ -224,10 +230,7 @@ function PublicLiveView() {
             <div class="boat-marker">
               <div
                 class="boat-arrow"
-                style="
-                  transform:
-                  rotate(${position.course || 0}deg)
-                "
+                style="transform: rotate(${position.course || 0}deg)"
               >
                 ▲
               </div>
@@ -269,11 +272,7 @@ function PublicLiveView() {
         )
 
         existingMarker.setIcon(icon)
-
-        existingMarker
-          .setPopupContent(
-            popup,
-          )
+        existingMarker.setPopupContent(popup)
       } else {
         const marker =
           L.marker(
@@ -302,29 +301,20 @@ function PublicLiveView() {
         positionedBoats,
       )
 
-      initialFitDoneRef.current =
-        true
+      initialFitDoneRef.current = true
     }
   }, [boats])
 
   function showAllBoats() {
     const map = mapRef.current
-
     if (!map) return
-
-    fitBoats(
-      map,
-      boats,
-    )
+    fitBoats(map, boats)
   }
 
   return (
     <main className="live-app">
-
       <header className="top-bar">
-
         <div className="brand-block">
-
           <div className="brand-small">
             REGATA LIVE
           </div>
@@ -332,23 +322,18 @@ function PublicLiveView() {
           <div className="brand-title">
             Sailing Horta Live
           </div>
-
         </div>
 
         <div className="event-controls">
-
           <select
             className="event-select"
-            value={
-              selectedEventId
-            }
+            value={selectedEventId}
             onChange={(event) =>
               setSelectedEventId(
                 event.target.value,
               )
             }
           >
-
             <option value="general">
               Modo Geral
             </option>
@@ -363,13 +348,10 @@ function PublicLiveView() {
                 </option>
               ),
             )}
-
           </select>
-
         </div>
 
         <div className="top-actions">
-
           <div
             className={
               connected
@@ -377,9 +359,7 @@ function PublicLiveView() {
                 : 'connection offline'
             }
           >
-            <span
-              className="status-dot"
-            />
+            <span className="status-dot" />
 
             {connected
               ? 'Traccar online'
@@ -392,13 +372,10 @@ function PublicLiveView() {
           >
             Mostrar todos
           </button>
-
         </div>
-
       </header>
 
       <section className="map-container">
-
         <div
           ref={mapElementRef}
           className="map"
@@ -413,9 +390,7 @@ function PublicLiveView() {
           {' '}
           barcos ativos
         </div>
-
       </section>
-
     </main>
   )
 }
@@ -450,6 +425,12 @@ function AdminView() {
           cache: 'no-store',
         })
 
+      if (!response.ok) {
+        throw new Error(
+          `HTTP ${response.status}`,
+        )
+      }
+
       const data =
         (await response.json()) as EventsResponse
 
@@ -460,81 +441,87 @@ function AdminView() {
   }
 
   async function createEvent(
-  event: React.FormEvent,
-) {
-  event.preventDefault()
+    event: React.FormEvent,
+  ) {
+    event.preventDefault()
 
-  if (!eventName.trim()) {
-    setError('Indica o nome da regata.')
-    return
-  }
+    if (!eventName.trim()) {
+      setError(
+        'Indica o nome da regata.',
+      )
+      return
+    }
 
-  setSaving(true)
-  setError(null)
-
-  try {
-    const apiUrl =
-      `${window.location.origin}/admin/api/events`
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      credentials: 'same-origin',
-
-      headers: {
-        'Content-Type': 'application/json',
-      },
-
-      body: JSON.stringify({
-        name: eventName.trim(),
-        startTime: startTime || null,
-        endTime: endTime || null,
-      }),
-    })
-
-    const text = await response.text()
-
-    let data: {
-      ok?: boolean
-      error?: string
-    } = {}
+    setSaving(true)
+    setError(null)
 
     try {
-      data = JSON.parse(text)
-    } catch {
-      throw new Error(
-        `Resposta inesperada do servidor (${response.status})`,
+      const response =
+        await fetch(
+          '/admin/api/events',
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'content-type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              name:
+                eventName.trim(),
+              startTime:
+                startTime || null,
+              endTime:
+                endTime || null,
+            }),
+          },
+        )
+
+      const text = await response.text()
+
+      let data: {
+        ok?: boolean
+        error?: string
+      } = {}
+
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error(
+          `Resposta inesperada do servidor (${response.status})`,
+        )
+      }
+
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+        throw new Error(
+          data.error ||
+            'Erro ao criar regata',
+        )
+      }
+
+      setEventName('')
+      setStartTime('')
+      setEndTime('')
+
+      await loadEvents()
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao criar regata',
       )
+    } finally {
+      setSaving(false)
     }
-
-    if (!response.ok || !data.ok) {
-      throw new Error(
-        data.error || 'Erro ao criar regata',
-      )
-    }
-
-    setEventName('')
-    setStartTime('')
-    setEndTime('')
-
-    await loadEvents()
-  } catch (error) {
-    setError(
-      error instanceof Error
-        ? error.message
-        : 'Erro ao criar regata',
-    )
-  } finally {
-    setSaving(false)
   }
-}
 
   return (
     <main className="admin-page">
-
       <header className="admin-header">
-
         <div>
-
           <div className="brand-small">
             REGATA LIVE
           </div>
@@ -542,7 +529,6 @@ function AdminView() {
           <h1>
             Administração
           </h1>
-
         </div>
 
         <a
@@ -551,13 +537,10 @@ function AdminView() {
         >
           ← Voltar ao Live
         </a>
-
       </header>
 
       <div className="admin-content">
-
         <section className="admin-card">
-
           <h2>
             Nova regata
           </h2>
@@ -566,7 +549,6 @@ function AdminView() {
             onSubmit={createEvent}
             className="admin-form"
           >
-
             <label>
               Nome
 
@@ -625,13 +607,10 @@ function AdminView() {
                 ? 'A guardar...'
                 : 'Criar regata'}
             </button>
-
           </form>
-
         </section>
 
         <section className="admin-card">
-
           <h2>
             Regatas
           </h2>
@@ -642,16 +621,13 @@ function AdminView() {
             </div>
           ) : (
             <div className="event-list">
-
               {events.map(
                 (event) => (
                   <div
                     key={event.id}
                     className="event-row"
                   >
-
                     <div>
-
                       <strong>
                         {event.name}
                       </strong>
@@ -659,7 +635,6 @@ function AdminView() {
                       <div className="event-meta">
                         {event.status}
                       </div>
-
                     </div>
 
                     <button
@@ -668,18 +643,13 @@ function AdminView() {
                     >
                       Editar
                     </button>
-
                   </div>
                 ),
               )}
-
             </div>
           )}
-
         </section>
-
       </div>
-
     </main>
   )
 }
