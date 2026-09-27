@@ -1,17 +1,18 @@
-COMO USAR ESTE ZIP
+COMO ATUALIZAR
 
-1. Descompacta o ZIP no Mac.
-2. O conteúdo deve ficar na raiz do repositório GitHub Sailinghortalive2.
-3. Se fores substituir ficheiros manualmente no GitHub, usa exatamente os ficheiros/pastas deste ZIP.
-4. Não coloques passwords no código.
-5. No Cloudflare Worker mantém os secrets:
-   TRACCAR_USERNAME
-   TRACCAR_PASSWORD
-6. Cloudflare Access deve proteger:
-   sailinghortalive.com/admin
-   sailinghortalive.com/admin/*
-7. Depois de atualizar o repositório, o Cloudflare fará novo deploy automaticamente.
+1. Descompacta este ZIP.
+2. No GitHub > Sailinghortalive2 > Add file > Upload files.
+3. Arrasta TODO o conteúdo que está dentro da pasta sailinghortalive2-participants:
+   src, index.html, package.json, README.md, vite.config.ts, wrangler.jsonc.
+4. Faz Commit changes na branch main.
+5. Aguarda o deploy automático do Cloudflare.
 
-CORREÇÃO IMPORTANTE INCLUÍDA
-O wrangler.jsonc inclui /admin/api/* em run_worker_first.
-Sem isso, pedidos para /admin/api/events podem ser tratados como ficheiros estáticos em vez de chegarem ao Worker.
+TESTE:
+- Abre https://sailinghortalive.com/admin
+- Numa regata, clica Editar.
+- Devem aparecer TODOS os dispositivos/barcos do Traccar, mesmo offline.
+- Seleciona os participantes e guarda.
+- No Live público, Modo Geral mostra todos os barcos ativos.
+- Ao escolher uma regata, aparecem apenas participantes ativos dessa regata.
+
+Não é necessário alterar as tabelas D1.
