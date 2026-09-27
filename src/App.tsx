@@ -694,6 +694,12 @@ function ReplayView() {
   const [speed, setSpeed] =
     useState(5)
 
+  const [showReplayNames, setShowReplayNames] =
+    useState(true)
+
+  const [showReplayTrails, setShowReplayTrails] =
+    useState(true)
+
   const animationRef =
     useRef<number | null>(null)
 
@@ -1011,6 +1017,33 @@ function ReplayView() {
       const track
       of replayData.tracks
     ) {
+      if (showReplayTrails) {
+        const elapsedTrack =
+          replayTrackUntilTime(
+            track.positions,
+            currentTimeMs,
+          )
+
+        if (elapsedTrack.length > 1) {
+          L.polyline(
+            elapsedTrack.map(
+              (position) => [
+                position.latitude,
+                position.longitude,
+              ] as [number, number],
+            ),
+            {
+              color:
+                boatColor(
+                  track.deviceId,
+                ),
+              weight: 3,
+              opacity: 0.62,
+            },
+          ).addTo(layer)
+        }
+      }
+
       const position =
         replayPositionAtTime(
           track.positions,
@@ -1018,6 +1051,13 @@ function ReplayView() {
         )
 
       if (!position) continue
+
+      const popup = `
+        <strong>${escapeHtml(track.boatName)}</strong><br>
+        Velocidade: ${Number(position.speed ?? 0).toFixed(1)} kn<br>
+        Rumo: ${Math.round(position.course ?? 0)}°<br>
+        Hora: ${formatReplayClock(currentTimeMs)}
+      `
 
       L.marker(
         [
@@ -1031,21 +1071,18 @@ function ReplayView() {
             boatColor(
               track.deviceId,
             ),
-            true,
+            showReplayNames,
           ),
         },
       )
         .addTo(layer)
-        .bindTooltip(
-          track.boatName,
-          {
-            direction: 'top',
-          },
-        )
+        .bindPopup(popup)
     }
   }, [
     replayData,
     currentTimeMs,
+    showReplayNames,
+    showReplayTrails,
   ])
 
   useEffect(() => {
@@ -1226,6 +1263,18 @@ function ReplayView() {
           <div className="replay-player-top">
             <button
               type="button"
+              className="replay-skip-button"
+              onClick={() => {
+                setPlaying(false)
+                setCurrentTimeMs(startMs)
+              }}
+              title="Ir para o início"
+            >
+              |◀
+            </button>
+
+            <button
+              type="button"
               className="replay-play-button"
               onClick={() =>
                 setPlaying(
@@ -1255,19 +1304,52 @@ function ReplayView() {
                 )
               }
             >
-              <option value={1}>
-                1×
-              </option>
-              <option value={5}>
-                5×
-              </option>
-              <option value={10}>
-                10×
-              </option>
-              <option value={30}>
-                30×
-              </option>
+              <option value={1}>1×</option>
+              <option value={5}>5×</option>
+              <option value={10}>10×</option>
+              <option value={30}>30×</option>
+              <option value={60}>60×</option>
             </select>
+
+            <button
+              type="button"
+              className="replay-skip-button"
+              onClick={() => {
+                setPlaying(false)
+                setCurrentTimeMs(endMs)
+              }}
+              title="Ir para o fim"
+            >
+              ▶|
+            </button>
+          </div>
+
+          <div className="replay-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={showReplayTrails}
+                onChange={(event) =>
+                  setShowReplayTrails(
+                    event.target.checked,
+                  )
+                }
+              />
+              Rastos
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={showReplayNames}
+                onChange={(event) =>
+                  setShowReplayNames(
+                    event.target.checked,
+                  )
+                }
+              />
+              Nomes
+            </label>
           </div>
 
           <input
@@ -1317,6 +1399,60 @@ function ReplayView() {
       </section>
     </main>
   )
+}
+
+function replayTrackUntilTime(
+  positions: ReplayPosition[],
+  timeMs: number,
+) {
+  if (positions.length === 0) {
+    return []
+  }
+
+  const elapsed =
+    positions.filter(
+      (position) => {
+        const positionTime =
+          new Date(
+            position.fixTime ?? 0,
+          ).getTime()
+
+        return (
+          Number.isFinite(positionTime) &&
+          positionTime <= timeMs
+        )
+      },
+    )
+
+  const interpolated =
+    replayPositionAtTime(
+      positions,
+      timeMs,
+    )
+
+  if (!interpolated) {
+    return elapsed
+  }
+
+  const last =
+    elapsed[
+      elapsed.length - 1
+    ]
+
+  if (
+    !last ||
+    last.latitude !==
+      interpolated.latitude ||
+    last.longitude !==
+      interpolated.longitude
+  ) {
+    return [
+      ...elapsed,
+      interpolated,
+    ]
+  }
+
+  return elapsed
 }
 
 function replayPositionAtTime(

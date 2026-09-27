@@ -1522,7 +1522,7 @@ button {
 
 .replay-player-top {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 10px;
   margin-bottom: 7px;
@@ -1637,5 +1637,57 @@ button {
   .layers-button,
   .connection {
     flex-shrink: 0;
+  }
+}
+
+
+.replay-skip-button {
+  min-width: 42px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #eef3f6;
+  color: #102331;
+  font-weight: 900;
+}
+
+.replay-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 5px 0 7px;
+  color: #4f6470;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.replay-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 760px) {
+  .replay-player-top {
+    grid-template-columns: auto auto 1fr auto auto;
+    gap: 5px;
+  }
+
+  .replay-skip-button {
+    min-width: 36px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  .replay-play-button {
+    min-width: 62px;
+  }
+
+  .replay-speed {
+    padding: 0 5px;
+  }
+
+  .replay-options {
+    margin-top: 4px;
   }
 }
