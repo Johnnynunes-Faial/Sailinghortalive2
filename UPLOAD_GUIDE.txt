@@ -1,17 +1,16 @@
-ATUALIZAÇÃO v0.8 — REPLAY+
+ATUALIZAÇÃO v0.8.1 — PAINEL DE BARCO NO REPLAY
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta todo o conteúdo de dentro da pasta sailinghortalive2-v0.8-replay-plus.
+3. Arrasta todo o conteúdo de dentro da pasta sailinghortalive2-v0.8.1-replay-painel.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
 TESTAR EM /replay:
-- escolher uma regata terminada;
-- Play/Pausa;
-- 1x / 5x / 10x / 30x / 60x;
-- botão início;
-- botão fim;
-- ligar/desligar Rastos;
-- ligar/desligar Nomes;
-- tocar num barco para ver velocidade, rumo e hora.
+- inicia o Play;
+- toca/clica num barco enquanto ele está em movimento;
+- deve aparecer um painel com:
+  nome, velocidade, rumo e hora;
+- o painel deve continuar aberto e atualizar durante o Play;
+- toca noutro barco para trocar;
+- usa × para fechar.

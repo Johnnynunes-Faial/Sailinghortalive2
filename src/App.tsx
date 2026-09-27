@@ -700,6 +700,11 @@ function ReplayView() {
   const [showReplayTrails, setShowReplayTrails] =
     useState(true)
 
+  const [
+    selectedReplayBoatId,
+    setSelectedReplayBoatId,
+  ] = useState<number | null>(null)
+
   const animationRef =
     useRef<number | null>(null)
 
@@ -786,6 +791,7 @@ function ReplayView() {
     setLoading(true)
     setError(null)
     setPlaying(false)
+    setSelectedReplayBoatId(null)
 
     try {
       const response = await fetch(
@@ -1052,14 +1058,7 @@ function ReplayView() {
 
       if (!position) continue
 
-      const popup = `
-        <strong>${escapeHtml(track.boatName)}</strong><br>
-        Velocidade: ${Number(position.speed ?? 0).toFixed(1)} kn<br>
-        Rumo: ${Math.round(position.course ?? 0)}°<br>
-        Hora: ${formatReplayClock(currentTimeMs)}
-      `
-
-      L.marker(
+      const marker = L.marker(
         [
           position.latitude,
           position.longitude,
@@ -1074,9 +1073,13 @@ function ReplayView() {
             showReplayNames,
           ),
         },
-      )
-        .addTo(layer)
-        .bindPopup(popup)
+      ).addTo(layer)
+
+      marker.on('click', () => {
+        setSelectedReplayBoatId(
+          track.deviceId,
+        )
+      })
     }
   }, [
     replayData,
@@ -1162,6 +1165,21 @@ function ReplayView() {
     replayData,
     speed,
   ])
+
+  const selectedReplayTrack =
+    replayData?.tracks.find(
+      (track) =>
+        track.deviceId ===
+        selectedReplayBoatId,
+    ) ?? null
+
+  const selectedReplayPosition =
+    selectedReplayTrack
+      ? replayPositionAtTime(
+          selectedReplayTrack.positions,
+          currentTimeMs,
+        )
+      : null
 
   const startMs =
     replayData
@@ -1256,6 +1274,70 @@ function ReplayView() {
             {error}
           </div>
         )}
+
+        {selectedReplayTrack &&
+          selectedReplayPosition && (
+            <div className="replay-boat-panel">
+              <button
+                type="button"
+                className="replay-boat-panel-close"
+                onClick={() =>
+                  setSelectedReplayBoatId(null)
+                }
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+
+              <div className="replay-boat-panel-name">
+                <span
+                  className="replay-boat-color"
+                  style={{
+                    background:
+                      boatColor(
+                        selectedReplayTrack.deviceId,
+                      ),
+                  }}
+                />
+
+                {selectedReplayTrack.boatName}
+              </div>
+
+              <div className="replay-boat-data">
+                <div>
+                  <span>Velocidade</span>
+                  <strong>
+                    {Number(
+                      selectedReplayPosition.speed ??
+                      0,
+                    ).toFixed(1)}
+                    {' '}
+                    kn
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Rumo</span>
+                  <strong>
+                    {Math.round(
+                      selectedReplayPosition.course ??
+                      0,
+                    )}
+                    °
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Hora</span>
+                  <strong>
+                    {formatReplayClock(
+                      currentTimeMs,
+                    )}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
       </section>
 
       {replayData && (
