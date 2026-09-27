@@ -1,13 +1,14 @@
-ATUALIZAÇÃO v0.8.3 — CLIQUE REPLAY DURANTE PLAY
+v0.9.1 — RASTO ALINHADO + HISTÓRICO NO ADMIN
 
-Carrega esta versão por cima da v0.8.2 como habitual.
+Carrega por cima da v0.9 como habitual.
 
-TESTE PRINCIPAL:
-1. Abre /replay.
-2. Carrega Play.
-3. Clica/toca num barco em movimento.
-4. Fecha o painel.
-5. Sem fazer Pause, clica/toca noutro barco.
-6. Repete várias vezes.
+TESTE REPLAY/LIVE
+- confirma que o rasto termina no centro do barco e não alguns pixels ao lado.
 
-O painel deve abrir sempre durante a reprodução.
+TESTE ADMIN
+1. Admin > escolher uma regata antiga > Percurso.
+2. Clicar "Mostrar rastos históricos".
+3. Devem aparecer os rastos dos barcos no mapa.
+4. Arrastar uma bóia/waypoint ou extremos das linhas para a posição correta.
+5. Clicar "Guardar percurso".
+6. Abrir o Replay e confirmar o percurso corrigido.

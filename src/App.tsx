@@ -153,6 +153,7 @@ function PublicLiveView() {
   const mapElementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const boatMarkersRef = useRef<Map<number, L.Marker>>(new Map())
+  const liveBoatCourseRef = useRef<Map<number, number>>(new Map())
   const courseLayerRef = useRef<L.LayerGroup | null>(null)
   const trackLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
@@ -326,6 +327,7 @@ function PublicLiveView() {
       if (!activeIds.has(id)) {
         marker.removeFrom(map)
         boatMarkersRef.current.delete(id)
+        liveBoatCourseRef.current.delete(id)
       }
     }
 
@@ -333,31 +335,96 @@ function PublicLiveView() {
       if (!boat.position) continue
 
       const color = boatColor(boat.id)
+
+      const previousCourse =
+        liveBoatCourseRef.current.get(boat.id)
+
+      const displayCourse =
+        smoothDisplayCourse(
+          previousCourse,
+          boat.position.course,
+          boat.position.speed,
+        )
+
+      liveBoatCourseRef.current.set(
+        boat.id,
+        displayCourse,
+      )
+
       const icon = makeBoatIcon(
         boat.name,
-        boat.position.course,
+        displayCourse,
         color,
         showNames,
       )
-      const marker = boatMarkersRef.current.get(boat.id)
+
+      const marker =
+        boatMarkersRef.current.get(boat.id)
 
       const popup = `
         <strong>${escapeHtml(boat.name)}</strong><br>
         Velocidade: ${Number(boat.position.speed ?? 0).toFixed(1)} kn<br>
-        Rumo: ${Math.round(boat.position.course ?? 0)}°
+        Rumo GPS: ${Math.round(boat.position.course ?? 0)}°
       `
 
       if (marker) {
-        marker.setLatLng([boat.position.latitude, boat.position.longitude])
-        marker.setIcon(icon)
+        marker.setLatLng([
+          boat.position.latitude,
+          boat.position.longitude,
+        ])
+
+        const markerWithState =
+          marker as L.Marker & {
+            __showNames?: boolean
+          }
+
+        if (
+          markerWithState.__showNames !==
+          showNames
+        ) {
+          marker.setIcon(icon)
+          markerWithState.__showNames =
+            showNames
+        } else {
+          const element =
+            marker.getElement()
+
+          const boatWrap =
+            element?.querySelector(
+              '.boat-svg-wrap',
+            ) as HTMLElement | null
+
+          if (boatWrap) {
+            boatWrap.style.transform =
+              `rotate(${displayCourse}deg)`
+          }
+        }
+
         marker.setPopupContent(popup)
       } else {
         const newMarker = L.marker(
-          [boat.position.latitude, boat.position.longitude],
-          { icon },
-        ).addTo(map).bindPopup(popup)
+          [
+            boat.position.latitude,
+            boat.position.longitude,
+          ],
+          {
+            icon,
+            riseOnHover: true,
+          },
+        )
+          .addTo(map)
+          .bindPopup(popup)
 
-        boatMarkersRef.current.set(boat.id, newMarker)
+        ;(
+          newMarker as L.Marker & {
+            __showNames?: boolean
+          }
+        ).__showNames = showNames
+
+        boatMarkersRef.current.set(
+          boat.id,
+          newMarker,
+        )
       }
     }
 
@@ -673,6 +740,11 @@ function ReplayView() {
 
   const replayBoatMarkersRef =
     useRef<Map<number, L.Marker>>(
+      new Map(),
+    )
+
+  const replayBoatCourseRef =
+    useRef<Map<number, number>>(
       new Map(),
     )
 
@@ -1046,6 +1118,7 @@ function ReplayView() {
       }
 
       replayBoatMarkersRef.current.clear()
+      replayBoatCourseRef.current.clear()
       return
     }
 
@@ -1095,9 +1168,26 @@ function ReplayView() {
         }
       }
 
+      const previousCourse =
+        replayBoatCourseRef.current.get(
+          track.deviceId,
+        )
+
+      const displayCourse =
+        smoothDisplayCourse(
+          previousCourse,
+          position.course,
+          position.speed,
+        )
+
+      replayBoatCourseRef.current.set(
+        track.deviceId,
+        displayCourse,
+      )
+
       const icon = makeBoatIcon(
         track.boatName,
-        position.course,
+        displayCourse,
         boatColor(
           track.deviceId,
         ),
@@ -1138,7 +1228,7 @@ function ReplayView() {
 
           if (boatWrap) {
             boatWrap.style.transform =
-              `rotate(${position.course || 0}deg)`
+              `rotate(${displayCourse}deg)`
           }
         }
       } else {
@@ -1181,6 +1271,10 @@ function ReplayView() {
         marker.removeFrom(boatsLayer)
 
         replayBoatMarkersRef.current.delete(
+          deviceId,
+        )
+
+        replayBoatCourseRef.current.delete(
           deviceId,
         )
       }
@@ -2764,12 +2858,16 @@ function CourseEditor({ event }: { event: EventItem }) {
   const mapElRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
+  const historyLayerRef = useRef<L.LayerGroup | null>(null)
 
   const [points, setPoints] = useState<CoursePoint[]>([])
   const [lines, setLines] = useState<CourseLine[]>([])
   const [library, setLibrary] = useState<LibraryBuoy[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [showHistoryTracks, setShowHistoryTracks] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyData, setHistoryData] = useState<ReplayEventData | null>(null)
 
   const [newType, setNewType] = useState<CoursePoint['point_type']>('buoy')
 
@@ -2861,6 +2959,7 @@ function CourseEditor({ event }: { event: EventItem }) {
     ).addTo(map)
 
     layerRef.current = L.layerGroup().addTo(map)
+    historyLayerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
     return () => {
@@ -3036,6 +3135,25 @@ function CourseEditor({ event }: { event: EventItem }) {
       boundsPoints.push([line.b_latitude, line.b_longitude])
     }
 
+    if (
+      showHistoryTracks &&
+      historyData
+    ) {
+      for (const track of historyData.tracks) {
+        for (const position of track.positions) {
+          if (
+            Number.isFinite(position.latitude) &&
+            Number.isFinite(position.longitude)
+          ) {
+            boundsPoints.push([
+              position.latitude,
+              position.longitude,
+            ])
+          }
+        }
+      }
+    }
+
     if (boundsPoints.length === 1) {
       map.setView(boundsPoints[0], 14)
     } else if (boundsPoints.length > 1) {
@@ -3044,7 +3162,107 @@ function CourseEditor({ event }: { event: EventItem }) {
         maxZoom: 14,
       })
     }
-  }, [points, lines, pendingLineA])
+  }, [
+    points,
+    lines,
+    pendingLineA,
+    showHistoryTracks,
+    historyData,
+  ])
+
+
+  useEffect(() => {
+    const layer = historyLayerRef.current
+    if (!layer) return
+
+    layer.clearLayers()
+
+    if (
+      !showHistoryTracks ||
+      !historyData
+    ) {
+      return
+    }
+
+    for (const track of historyData.tracks) {
+      const latlngs = track.positions
+        .filter(
+          (position) =>
+            Number.isFinite(position.latitude) &&
+            Number.isFinite(position.longitude),
+        )
+        .map(
+          (position) =>
+            [
+              position.latitude,
+              position.longitude,
+            ] as [number, number],
+        )
+
+      if (latlngs.length < 2) continue
+
+      L.polyline(latlngs, {
+        color: boatColor(track.deviceId),
+        weight: 3,
+        opacity: 0.72,
+      }).addTo(layer)
+    }
+  }, [showHistoryTracks, historyData])
+
+  async function toggleHistoryTracks() {
+    if (showHistoryTracks) {
+      setShowHistoryTracks(false)
+      return
+    }
+
+    if (historyData) {
+      setShowHistoryTracks(true)
+      return
+    }
+
+    setHistoryLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        `/api/replay/events/${encodeURIComponent(event.id)}`,
+        { cache: 'no-store' },
+      )
+
+      const data =
+        await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Não foi possível carregar o histórico desta regata.',
+        )
+      }
+
+      setHistoryData(
+        data as ReplayEventData,
+      )
+      setShowHistoryTracks(true)
+
+      const boatsWithHistory =
+        (data.tracks ?? []).filter(
+          (track: ReplayTrack) =>
+            track.positions.length > 1,
+        ).length
+
+      setMessage(
+        `${boatsWithHistory} barco(s) com rasto histórico carregado(s). Arrasta as bóias para ajustar e depois guarda o percurso.`,
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar rastos históricos.',
+      )
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   function startLineDrawing(type: 'start' | 'finish') {
     setLineTool(type)
@@ -3311,6 +3529,29 @@ function CourseEditor({ event }: { event: EventItem }) {
         </div>
       </div>
 
+      <div className="course-history-tools">
+        <button
+          className={
+            showHistoryTracks
+              ? 'secondary-button active'
+              : 'secondary-button'
+          }
+          onClick={toggleHistoryTracks}
+          disabled={historyLoading}
+        >
+          {historyLoading
+            ? 'A carregar histórico...'
+            : showHistoryTracks
+              ? 'Ocultar rastos históricos'
+              : 'Mostrar rastos históricos'}
+        </button>
+
+        <span>
+          Usa os rastos gravados no Traccar como referência para ajustar bóias,
+          waypoints e linhas desta regata.
+        </span>
+      </div>
+
       <div className="course-map" ref={mapElRef} />
 
       <div className="course-grid">
@@ -3482,6 +3723,55 @@ function CourseEditor({ event }: { event: EventItem }) {
   )
 }
 
+
+const MIN_COURSE_SPEED_KN = 1
+const COURSE_SMOOTHING_ALPHA = 0.35
+
+function normalizeAngle(angle: number) {
+  return ((angle % 360) + 360) % 360
+}
+
+function shortestAngleDelta(from: number, to: number) {
+  let delta = normalizeAngle(to) - normalizeAngle(from)
+  if (delta > 180) delta -= 360
+  if (delta < -180) delta += 360
+  return delta
+}
+
+function smoothDisplayCourse(
+  previous: number | undefined,
+  incoming: number | undefined,
+  speed: number | undefined,
+) {
+  const validIncoming =
+    Number.isFinite(Number(incoming))
+      ? normalizeAngle(Number(incoming))
+      : undefined
+
+  if (previous === undefined || !Number.isFinite(previous)) {
+    return validIncoming ?? 0
+  }
+
+  const validSpeed =
+    Number.isFinite(Number(speed))
+      ? Number(speed)
+      : 0
+
+  if (validSpeed < MIN_COURSE_SPEED_KN) {
+    return normalizeAngle(previous)
+  }
+
+  if (validIncoming === undefined) {
+    return normalizeAngle(previous)
+  }
+
+  const delta = shortestAngleDelta(previous, validIncoming)
+
+  return normalizeAngle(
+    previous + delta * COURSE_SMOOTHING_ALPHA,
+  )
+}
+
 function makeBoatIcon(
   name: string,
   course: number,
@@ -3549,7 +3839,7 @@ function makeBoatIcon(
       </div>
     `,
     iconSize: [118, 68],
-    iconAnchor: [59, 23],
+    iconAnchor: [59, 23.5],
   })
 }
 

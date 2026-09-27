@@ -1,15 +1,22 @@
-# Sailing Horta Live 2 — v0.8.3
+# Sailing Horta Live 2 — v0.9.1
 
-Correção definitiva do clique nos barcos durante o Replay em Play.
+Duas melhorias:
 
-A causa era o ícone HTML do barco ser recriado continuamente para atualizar o rumo.
-Mesmo mantendo o marcador Leaflet, o elemento visual era substituído várias vezes por segundo,
-o que fazia perder o clique/toque durante a reprodução.
+## 1. Alinhamento do rasto com o barco
+O SVG do barco tinha dimensões visuais diferentes do contentor usado pelo Leaflet.
+Isso fazia parecer que o rasto terminava alguns pixels ao lado do barco.
 
-Nesta versão:
-- o marcador e o respetivo elemento HTML permanecem estáveis;
-- a posição continua a atualizar normalmente;
-- o rumo é atualizado diretamente no desenho do barco, sem recriar o ícone;
-- o ícone só é recriado quando ligas/desligas os nomes;
-- clicar/tocar nos barcos durante Play deve funcionar normalmente;
-- podes fechar o painel e selecionar outro barco sem fazer Pause.
+Agora:
+- o centro visual do barco coincide com a posição GPS;
+- aplica-se tanto ao Live como ao Replay;
+- o ponto de rotação também coincide com o centro do SVG.
+
+## 2. Rastos históricos no editor de percurso do Admin
+No Admin > evento > Percurso existe agora:
+- "Mostrar rastos históricos";
+- carrega os tracks dessa regata através do histórico do Traccar;
+- cada barco aparece com a sua cor;
+- podes arrastar as bóias, waypoints e extremos das linhas sobre o rasto;
+- depois "Guardar percurso" grava as novas posições.
+
+Isto permite reconstruir/afinar posteriormente o percurso de uma regata usando o track real como referência.
