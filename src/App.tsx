@@ -835,6 +835,10 @@ function ReplayView() {
   }, [])
 
   useEffect(() => {
+    if (!selectedEventId) {
+      return
+    }
+
     if (
       !mapElementRef.current ||
       mapRef.current
@@ -868,11 +872,18 @@ function ReplayView() {
     replayTrailLayerRef.current =
       L.layerGroup().addTo(map)
 
+    requestAnimationFrame(() => {
+      map.invalidateSize()
+    })
+
     return () => {
       map.remove()
       mapRef.current = null
+      courseLayerRef.current = null
+      boatsLayerRef.current = null
+      replayTrailLayerRef.current = null
     }
-  }, [])
+  }, [selectedEventId])
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -929,7 +940,10 @@ function ReplayView() {
         ).getTime()
 
       setCurrentTimeMs(startMs)
-      drawReplayBase(data)
+
+      requestAnimationFrame(() => {
+        drawReplayBase(data)
+      })
     } catch (error) {
       setReplayData(null)
       setError(
@@ -941,6 +955,21 @@ function ReplayView() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (
+      !selectedEventId ||
+      !replayData ||
+      !mapRef.current
+    ) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      mapRef.current?.invalidateSize()
+      drawReplayBase(replayData)
+    })
+  }, [selectedEventId, replayData])
 
   function drawReplayBase(
     data: ReplayEventData,

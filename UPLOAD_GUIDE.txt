@@ -1,11 +1,12 @@
-v0.9.2 — SELEÇÃO DE REGATA ANTES DO REPLAY
+v0.9.3 — CORREÇÃO DO MAPA NO REPLAY
 
-Carrega por cima da v0.9.1 como habitual.
+Carrega por cima da v0.9.2 como habitual.
 
 TESTE:
-1. Abre Histórico / Replay.
-2. Não deve carregar nenhuma regata automaticamente.
-3. Deve aparecer a lista de regatas terminadas.
-4. Escolhe uma regata.
-5. Só então deve carregar mapa, percurso e histórico dos barcos.
-6. Clica “Escolher outra regata” e confirma que regressa à lista.
+1. Abrir Histórico / Replay.
+2. Deve aparecer a lista de regatas.
+3. Escolher uma regata.
+4. Deve aparecer o mapa, percurso e barcos.
+5. Clicar “Escolher outra regata”.
+6. Escolher outra.
+7. O mapa deve voltar a carregar normalmente.
