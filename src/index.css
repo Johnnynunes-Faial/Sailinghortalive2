@@ -1578,7 +1578,10 @@ button {
 
 @media (max-width: 760px) {
   .replay-link-button {
-    display: none;
+    display: inline-flex;
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 11px;
   }
 
   .replay-page {
@@ -1622,5 +1625,17 @@ button {
 
   .replay-help {
     padding: 7px 9px 10px;
+  }
+}
+
+@media (max-width: 650px) {
+  .top-actions {
+    gap: 6px;
+  }
+
+  .replay-link-button,
+  .layers-button,
+  .connection {
+    flex-shrink: 0;
   }
 }

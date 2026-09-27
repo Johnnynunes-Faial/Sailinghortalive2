@@ -1,13 +1,12 @@
-ATUALIZAÇÃO v0.7.1 — LIVE MAIS LIMPO
+ATUALIZAÇÃO v0.7.2 — REPLAY NO MOBILE
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.7.1-live-cleanup.
+3. Arrasta todo o conteúdo de dentro da pasta sailinghortalive2-v0.7.2-replay-mobile.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
-TESTAR:
-- Live: barcos devem aparecer ligeiramente mais pequenos.
-- Seletor central: não deve mostrar regatas terminadas.
-- Histórico / Replay: as regatas terminadas continuam disponíveis.
-- Admin: continua a mostrar regatas agendadas, em direto e terminadas.
+TESTE:
+- abre o Live no telemóvel;
+- no topo deve aparecer o botão Replay;
+- toca nele e confirma que abre /replay.

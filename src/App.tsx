@@ -548,7 +548,7 @@ function PublicLiveView() {
             href="/replay"
             className="replay-link-button"
           >
-            Histórico / Replay
+            Replay
           </a>
 
           <button
