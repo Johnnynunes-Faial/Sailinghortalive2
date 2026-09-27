@@ -4,6 +4,7 @@
   "compatibility_date": "2026-09-27",
 
   "main": "./src/worker.ts",
+  "keep_vars": true,
 
   "assets": {
     "directory": "./dist",
