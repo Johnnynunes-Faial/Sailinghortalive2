@@ -460,73 +460,73 @@ function AdminView() {
   }
 
   async function createEvent(
-    event: React.FormEvent,
-  ) {
-    event.preventDefault()
+  event: React.FormEvent,
+) {
+  event.preventDefault()
 
-    if (!eventName.trim()) {
-      setError(
-        'Indica o nome da regata.',
-      )
+  if (!eventName.trim()) {
+    setError('Indica o nome da regata.')
+    return
+  }
 
-      return
-    }
+  setSaving(true)
+  setError(null)
 
-    setSaving(true)
-    setError(null)
+  try {
+    const apiUrl =
+      `${window.location.origin}/admin/api/events`
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+
+      headers: {
+        'Content-Type': 'application/json',
+      },
+
+      body: JSON.stringify({
+        name: eventName.trim(),
+        startTime: startTime || null,
+        endTime: endTime || null,
+      }),
+    })
+
+    const text = await response.text()
+
+    let data: {
+      ok?: boolean
+      error?: string
+    } = {}
 
     try {
-      const response =
-        await fetch(
-          '/admin/api/events',
-          {
-            method: 'POST',
-            headers: {
-              'content-type':
-                'application/json',
-            },
-            body: JSON.stringify({
-              name:
-                eventName.trim(),
-              startTime:
-                startTime || null,
-              endTime:
-                endTime || null,
-            }),
-          },
-        )
-
-      const data =
-        await response.json() as {
-          ok: boolean
-          error?: string
-        }
-
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
-        throw new Error(
-          data.error ||
-            'Erro ao criar regata',
-        )
-      }
-
-      setEventName('')
-      setStartTime('')
-      setEndTime('')
-
-      await loadEvents()
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Erro ao criar regata',
+      data = JSON.parse(text)
+    } catch {
+      throw new Error(
+        `Resposta inesperada do servidor (${response.status})`,
       )
-    } finally {
-      setSaving(false)
     }
+
+    if (!response.ok || !data.ok) {
+      throw new Error(
+        data.error || 'Erro ao criar regata',
+      )
+    }
+
+    setEventName('')
+    setStartTime('')
+    setEndTime('')
+
+    await loadEvents()
+  } catch (error) {
+    setError(
+      error instanceof Error
+        ? error.message
+        : 'Erro ao criar regata',
+    )
+  } finally {
+    setSaving(false)
   }
+}
 
   return (
     <main className="admin-page">
