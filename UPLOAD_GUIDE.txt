@@ -1,21 +1,20 @@
-ATUALIZAÇÃO v0.4 — CAMADAS + WINDY + RASTOS
+ATUALIZAÇÃO v0.4.1 — FORMATO DE COORDENADAS BOATING
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.4.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.4.1-coordenadas.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
 TESTE:
-- Abre o Live.
-- Clica Camadas.
-- Liga/desliga Percurso.
-- Liga/desliga Nomes dos barcos.
-- Liga Vento: deve abrir a janela Windy.
-- Seleciona uma regata.
-- Em Rasto escolhe 0,5 / 1 / 2 NM.
-- Cada barco deve apresentar um rasto da sua própria cor.
+- Admin > Editar regata > Percurso.
+- Na biblioteca cria uma bóia com:
+  Latitude: 38º33.457'N
+  Longitude: 028º37.123'W
+- Guarda na biblioteca.
+- A coordenada deve aparecer no mesmo formato.
+- "Copiar para percurso" continua a funcionar normalmente.
 
-NOTA:
-O endpoint de rasto consulta o histórico do Traccar apenas quando a camada está ligada.
-O browser atualiza esse histórico a cada 20 segundos, para reduzir carga.
+Também são aceites coordenadas decimais antigas, por exemplo:
+38.557617
+-28.618717

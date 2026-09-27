@@ -1242,11 +1242,13 @@ function CourseEditor({ event }: { event: EventItem }) {
   }
 
   function addByCoordinates() {
-    const lat = Number(coordLat.replace(',', '.'))
-    const lon = Number(coordLon.replace(',', '.'))
+    const lat = parseBoatingCoordinate(coordLat, 'lat')
+    const lon = parseBoatingCoordinate(coordLon, 'lon')
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      setMessage('Coordenadas inválidas.')
+    if (lat === null || lon === null) {
+      setMessage(
+        "Coordenadas inválidas. Exemplo: 38º33.457'N e 028º37.123'W.",
+      )
       return
     }
 
@@ -1346,11 +1348,13 @@ function CourseEditor({ event }: { event: EventItem }) {
   }
 
   async function createLibraryBuoy() {
-    const lat = Number(libraryLat.replace(',', '.'))
-    const lon = Number(libraryLon.replace(',', '.'))
+    const lat = parseBoatingCoordinate(libraryLat, 'lat')
+    const lon = parseBoatingCoordinate(libraryLon, 'lon')
 
-    if (!libraryName.trim() || !Number.isFinite(lat) || !Number.isFinite(lon)) {
-      setMessage('Preenche nome e coordenadas válidas para a biblioteca.')
+    if (!libraryName.trim() || lat === null || lon === null) {
+      setMessage(
+        "Preenche o nome e coordenadas válidas. Exemplo: 38º33.457'N e 028º37.123'W.",
+      )
       return
     }
 
@@ -1498,12 +1502,12 @@ function CourseEditor({ event }: { event: EventItem }) {
 
           <div className="coordinate-row">
             <input
-              placeholder="Latitude"
+              placeholder="38º33.457'N"
               value={coordLat}
               onChange={(e) => setCoordLat(e.target.value)}
             />
             <input
-              placeholder="Longitude"
+              placeholder="028º37.123'W"
               value={coordLon}
               onChange={(e) => setCoordLon(e.target.value)}
             />
@@ -1529,7 +1533,8 @@ function CourseEditor({ event }: { event: EventItem }) {
                 <div>
                   <strong>{buoy.name}</strong>
                   <span>
-                    {buoy.latitude.toFixed(6)}, {buoy.longitude.toFixed(6)}
+                    {formatBoatingCoordinate(buoy.latitude, 'lat')},{' '}
+                    {formatBoatingCoordinate(buoy.longitude, 'lon')}
                   </span>
                 </div>
 
@@ -1561,12 +1566,12 @@ function CourseEditor({ event }: { event: EventItem }) {
 
             <div className="coordinate-row">
               <input
-                placeholder="Latitude"
+                placeholder="38º33.457'N"
                 value={libraryLat}
                 onChange={(e) => setLibraryLat(e.target.value)}
               />
               <input
-                placeholder="Longitude"
+                placeholder="028º37.123'W"
                 value={libraryLon}
                 onChange={(e) => setLibraryLon(e.target.value)}
               />
@@ -1602,7 +1607,8 @@ function CourseEditor({ event }: { event: EventItem }) {
                   </strong>
                   <span>
                     {labelPointType(point.point_type)} ·{' '}
-                    {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                    {formatBoatingCoordinate(point.latitude, 'lat')},{' '}
+                    {formatBoatingCoordinate(point.longitude, 'lon')}
                   </span>
                 </div>
 
@@ -1754,6 +1760,73 @@ function labelPointType(type: CoursePoint['point_type']) {
 function defaultPointName(type: CoursePoint['point_type'], index: number) {
   if (type === 'waypoint') return `Waypoint ${index}`
   return `Bóia ${index}`
+}
+
+function parseBoatingCoordinate(
+  rawValue: string,
+  axis: 'lat' | 'lon',
+): number | null {
+  const value = rawValue.trim().toUpperCase()
+
+  if (!value) return null
+
+  // Mantém compatibilidade com coordenadas decimais.
+  const decimal = Number(value.replace(',', '.'))
+  if (Number.isFinite(decimal)) {
+    const max = axis === 'lat' ? 90 : 180
+    return Math.abs(decimal) <= max ? decimal : null
+  }
+
+  // Formato de graus e minutos decimais usado no Boating:
+  // 38º33.457'N   /   028º37.123'W
+  const match = value.match(
+    /^\s*(\d{1,3})\s*[º°]\s*(\d{1,2}(?:[.,]\d+)?)\s*['’′]?\s*([NSEW])\s*$/,
+  )
+
+  if (!match) return null
+
+  const degrees = Number(match[1])
+  const minutes = Number(match[2].replace(',', '.'))
+  const hemisphere = match[3]
+
+  if (!Number.isFinite(degrees) || !Number.isFinite(minutes)) return null
+  if (minutes < 0 || minutes >= 60) return null
+
+  if (axis === 'lat') {
+    if (hemisphere !== 'N' && hemisphere !== 'S') return null
+    if (degrees > 90) return null
+  } else {
+    if (hemisphere !== 'E' && hemisphere !== 'W') return null
+    if (degrees > 180) return null
+  }
+
+  let decimalDegrees = degrees + minutes / 60
+
+  if (hemisphere === 'S' || hemisphere === 'W') {
+    decimalDegrees *= -1
+  }
+
+  return decimalDegrees
+}
+
+function formatBoatingCoordinate(
+  value: number,
+  axis: 'lat' | 'lon',
+) {
+  const absolute = Math.abs(value)
+  const degrees = Math.floor(absolute)
+  const minutes = (absolute - degrees) * 60
+
+  const hemisphere =
+    axis === 'lat'
+      ? value >= 0 ? 'N' : 'S'
+      : value >= 0 ? 'E' : 'W'
+
+  const degreeWidth = axis === 'lat' ? 2 : 3
+  const degreesText = String(degrees).padStart(degreeWidth, '0')
+  const minutesText = minutes.toFixed(3).padStart(6, '0')
+
+  return `${degreesText}º${minutesText}'${hemisphere}`
 }
 
 function toLocalInput(value: string | null) {

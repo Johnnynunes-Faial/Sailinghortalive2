@@ -1,13 +1,10 @@
-# Sailing Horta Live 2 — v0.4
+# Sailing Horta Live 2 — v0.4.1
 
-Novidades:
-- Menu Camadas no Live.
-- Percurso on/off.
-- Nomes dos barcos on/off.
-- Vento via janela Windy.
-- Rasto por regata: desligado / 0,5 NM / 1 NM / 2 NM.
-- Rasto com a mesma cor do veleiro.
-- Posições atuais continuam a atualizar a cada ~2 s.
-- Rastos atualizam a cada 20 s.
-- O rasto é obtido do histórico do Traccar.
-- O rasto só fica disponível quando uma regata está selecionada.
+Alteração de coordenadas:
+- Entrada no formato usado no Boating / navegação:
+  - Latitude: 38º33.457'N
+  - Longitude: 028º37.123'W
+- Também continua a aceitar coordenadas decimais por compatibilidade.
+- A biblioteca de bóias passa a mostrar as coordenadas em graus + minutos decimais.
+- A lista de marcas do percurso também mostra o mesmo formato.
+- Internamente, as coordenadas continuam guardadas em decimal no D1/Leaflet, evitando alterações à base de dados.
