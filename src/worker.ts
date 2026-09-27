@@ -236,6 +236,152 @@ function azoresLocalDateTime(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`
 }
 
+
+function getTimeZoneOffsetMs(
+  date: Date,
+  timeZone: string,
+) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  )
+
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  )
+
+  return asUtc - date.getTime()
+}
+
+function azoresLocalToUtcIso(
+  value: string | null | undefined,
+) {
+  if (!value) return null
+
+  const normalized = value.slice(0, 19)
+  const match = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  )
+
+  if (!match) return null
+
+  const [, y, m, d, hh, mm, ss = '00'] = match
+
+  const localAsUtcMs = Date.UTC(
+    Number(y),
+    Number(m) - 1,
+    Number(d),
+    Number(hh),
+    Number(mm),
+    Number(ss),
+  )
+
+  let guess = new Date(localAsUtcMs)
+  let offset = getTimeZoneOffsetMs(
+    guess,
+    'Atlantic/Azores',
+  )
+
+  guess = new Date(localAsUtcMs - offset)
+
+  const offset2 = getTimeZoneOffsetMs(
+    guess,
+    'Atlantic/Azores',
+  )
+
+  return new Date(localAsUtcMs - offset2).toISOString()
+}
+
+function downsamplePositions(
+  positions: TraccarPosition[],
+  maxPoints = 2000,
+) {
+  if (positions.length <= maxPoints) {
+    return positions
+  }
+
+  const step =
+    (positions.length - 1) /
+    (maxPoints - 1)
+
+  const sampled: TraccarPosition[] = []
+
+  for (let i = 0; i < maxPoints; i++) {
+    const index = Math.round(i * step)
+    sampled.push(positions[index])
+  }
+
+  return sampled
+}
+
+async function getReplayTrackForDevice(
+  env: Env,
+  deviceId: number,
+  fromIso: string,
+  toIso: string,
+) {
+  const params = new URLSearchParams({
+    deviceId: String(deviceId),
+    from: fromIso,
+    to: toIso,
+  })
+
+  const response = await traccarFetch(
+    env,
+    `/api/reports/route?${params.toString()}`,
+  )
+
+  if (!response.ok) {
+    return []
+  }
+
+  const positions =
+    (await response.json()) as TraccarPosition[]
+
+  const valid = positions
+    .filter(
+      (position) =>
+        Number.isFinite(position.latitude) &&
+        Number.isFinite(position.longitude),
+    )
+    .sort((a, b) => {
+      const ta = new Date(
+        a.fixTime ??
+        a.deviceTime ??
+        a.serverTime ??
+        0,
+      ).getTime()
+
+      const tb = new Date(
+        b.fixTime ??
+        b.deviceTime ??
+        b.serverTime ??
+        0,
+      ).getTime()
+
+      return ta - tb
+    })
+
+  return downsamplePositions(valid)
+}
+
 function effectiveEventStatus(event: {
   status?: string
   start_time?: string | null
@@ -350,6 +496,170 @@ export default {
               ? error.message
               : 'Erro ao carregar rastos',
         }, 500)
+      }
+    }
+
+    const replayMatch = url.pathname.match(
+      /^\/api\/replay\/events\/([^/]+)$/,
+    )
+
+    if (replayMatch && request.method === 'GET') {
+      try {
+        const eventId = replayMatch[1]
+
+        const event = await env.DB.prepare(`
+          SELECT
+            id,
+            name,
+            start_time,
+            end_time,
+            status,
+            created_at,
+            updated_at
+          FROM events
+          WHERE id = ?
+        `).bind(eventId).first<{
+          id: string
+          name: string
+          start_time: string | null
+          end_time: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }>()
+
+        if (!event) {
+          return json(
+            {
+              ok: false,
+              error: 'Regata não encontrada',
+            },
+            404,
+          )
+        }
+
+        const fromIso =
+          azoresLocalToUtcIso(event.start_time)
+
+        const toIso =
+          azoresLocalToUtcIso(event.end_time)
+
+        if (!fromIso || !toIso) {
+          return json(
+            {
+              ok: false,
+              error:
+                'A regata precisa de hora de início e fim válidas para criar o Replay.',
+            },
+            400,
+          )
+        }
+
+        const participants = await env.DB.prepare(`
+          SELECT
+            traccar_device_id,
+            boat_name
+          FROM event_participants
+          WHERE event_id = ?
+          ORDER BY boat_name COLLATE NOCASE ASC
+        `).bind(eventId).all<{
+          traccar_device_id: number
+          boat_name: string
+        }>()
+
+        const course = await env.DB.prepare(`
+          SELECT
+            id,
+            event_id,
+            point_type,
+            name,
+            latitude,
+            longitude,
+            point_order
+          FROM course_points
+          WHERE event_id = ?
+          ORDER BY point_order ASC
+        `).bind(eventId).all()
+
+        await ensureCourseLinesTable(env)
+
+        const lines = await env.DB.prepare(`
+          SELECT
+            id,
+            event_id,
+            line_type,
+            a_latitude,
+            a_longitude,
+            b_latitude,
+            b_longitude
+          FROM course_lines
+          WHERE event_id = ?
+          ORDER BY CASE line_type WHEN 'start' THEN 0 ELSE 1 END
+        `).bind(eventId).all()
+
+        const rows = participants.results ?? []
+
+        const tracks = await Promise.all(
+          rows.map(async (participant) => {
+            const positions =
+              await getReplayTrackForDevice(
+                env,
+                Number(participant.traccar_device_id),
+                fromIso,
+                toIso,
+              )
+
+            return {
+              deviceId:
+                Number(participant.traccar_device_id),
+
+              boatName:
+                participant.boat_name,
+
+              positions:
+                positions.map((position) => ({
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  speed: position.speed ?? 0,
+                  course: position.course ?? 0,
+                  fixTime:
+                    position.fixTime ??
+                    position.deviceTime ??
+                    position.serverTime ??
+                    null,
+                })),
+            }
+          }),
+        )
+
+        return json({
+          ok: true,
+          event: {
+            ...event,
+            status:
+              effectiveEventStatus(event),
+            startUtc: fromIso,
+            endUtc: toIso,
+          },
+          participants:
+            rows,
+          course:
+            course.results ?? [],
+          lines:
+            lines.results ?? [],
+          tracks,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao preparar Replay',
+          },
+          500,
+        )
       }
     }
 

@@ -1,11 +1,31 @@
-ATUALIZAÇÃO v0.6.2 — NOVO ÍCONE DE BARCO
+ATUALIZAÇÃO v0.7 — REPLAY BÁSICO
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6.2-icone-barco.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.7-replay.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
-6. Atualiza o Live com refresh forçado se necessário.
 
-O único objetivo desta versão é alterar o desenho do barco.
-As restantes funcionalidades mantêm-se.
+TESTE RECOMENDADO COM UMA REGATA ANTIGA
+
+A) No Admin:
+- cria ou usa um evento antigo;
+- confirma hora de início e fim;
+- associa os barcos que participaram;
+- cria o percurso histórico;
+- deixa a regata como Terminada.
+
+B) Abre:
+https://sailinghortalive.com/replay
+
+C) Escolhe a regata.
+
+D) O site deve:
+- carregar o percurso;
+- pedir ao Traccar o histórico entre início/fim;
+- mostrar quantos barcos têm histórico;
+- permitir Play/Pausa;
+- permitir deslocar a barra temporal;
+- permitir 1x / 5x / 10x / 30x.
+
+Se um barco não tiver dados no Traccar nesse intervalo, simplesmente não aparece no Replay.

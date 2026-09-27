@@ -86,6 +86,36 @@ type BoatTrack = {
   positions: TrackPoint[]
 }
 
+
+type ReplayPosition = {
+  latitude: number
+  longitude: number
+  speed: number
+  course: number
+  fixTime: string | null
+}
+
+type ReplayTrack = {
+  deviceId: number
+  boatName: string
+  positions: ReplayPosition[]
+}
+
+type ReplayEventData = {
+  ok: boolean
+  event: EventItem & {
+    startUtc: string
+    endUtc: string
+  }
+  participants: Array<{
+    traccar_device_id: number
+    boat_name: string
+  }>
+  course: CoursePoint[]
+  lines: CourseLine[]
+  tracks: ReplayTrack[]
+}
+
 const BOAT_COLORS = [
   '#e53935',
   '#1e88e5',
@@ -103,6 +133,10 @@ const BOAT_COLORS = [
 
 function App() {
   const path = window.location.pathname
+
+  if (path.startsWith('/replay')) {
+    return <ReplayView />
+  }
 
   if (path.startsWith('/admin/regata')) {
     return <RaceModeView />
@@ -492,6 +526,13 @@ function PublicLiveView() {
             {connected ? 'Traccar online' : 'Traccar offline'}
           </div>
 
+          <a
+            href="/replay"
+            className="replay-link-button"
+          >
+            Histórico / Replay
+          </a>
+
           <button
             className="layers-button"
             onClick={() => setLayersOpen((value) => !value)}
@@ -593,6 +634,844 @@ function PublicLiveView() {
       </section>
     </main>
   )
+}
+
+
+function ReplayView() {
+  const mapElementRef =
+    useRef<HTMLDivElement | null>(null)
+
+  const mapRef =
+    useRef<L.Map | null>(null)
+
+  const courseLayerRef =
+    useRef<L.LayerGroup | null>(null)
+
+  const boatsLayerRef =
+    useRef<L.LayerGroup | null>(null)
+
+  const [events, setEvents] =
+    useState<EventItem[]>([])
+
+  const [
+    selectedEventId,
+    setSelectedEventId,
+  ] = useState('')
+
+  const [replayData, setReplayData] =
+    useState<ReplayEventData | null>(null)
+
+  const [loading, setLoading] =
+    useState(false)
+
+  const [error, setError] =
+    useState<string | null>(null)
+
+  const [currentTimeMs, setCurrentTimeMs] =
+    useState(0)
+
+  const [playing, setPlaying] =
+    useState(false)
+
+  const [speed, setSpeed] =
+    useState(5)
+
+  const animationRef =
+    useRef<number | null>(null)
+
+  const lastAnimationTsRef =
+    useRef<number | null>(null)
+
+  useEffect(() => {
+    fetch('/api/events', {
+      cache: 'no-store',
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        const completed =
+          (data.events ?? []).filter(
+            (event: EventItem) =>
+              event.status === 'completed',
+          )
+
+        setEvents(completed)
+
+        if (
+          completed.length > 0 &&
+          !selectedEventId
+        ) {
+          setSelectedEventId(
+            completed[0].id,
+          )
+        }
+      })
+      .catch(() => {
+        setEvents([])
+      })
+  }, [])
+
+  useEffect(() => {
+    if (
+      !mapElementRef.current ||
+      mapRef.current
+    ) {
+      return
+    }
+
+    const map =
+      L.map(mapElementRef.current)
+        .setView(
+          [38.535, -28.63],
+          10,
+        )
+
+    L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; OpenStreetMap contributors',
+      },
+    ).addTo(map)
+
+    mapRef.current = map
+    courseLayerRef.current =
+      L.layerGroup().addTo(map)
+
+    boatsLayerRef.current =
+      L.layerGroup().addTo(map)
+
+    return () => {
+      map.remove()
+      mapRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedEventId) {
+      setReplayData(null)
+      return
+    }
+
+    loadReplay(selectedEventId)
+  }, [selectedEventId])
+
+  async function loadReplay(
+    eventId: string,
+  ) {
+    setLoading(true)
+    setError(null)
+    setPlaying(false)
+
+    try {
+      const response = await fetch(
+        `/api/replay/events/${encodeURIComponent(eventId)}`,
+        {
+          cache: 'no-store',
+        },
+      )
+
+      const data =
+        await response.json() as
+          ReplayEventData & {
+            error?: string
+          }
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Erro ao carregar Replay',
+        )
+      }
+
+      setReplayData(data)
+
+      const startMs =
+        new Date(
+          data.event.startUtc,
+        ).getTime()
+
+      setCurrentTimeMs(startMs)
+      drawReplayBase(data)
+    } catch (error) {
+      setReplayData(null)
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar Replay',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function drawReplayBase(
+    data: ReplayEventData,
+  ) {
+    const map = mapRef.current
+    const courseLayer =
+      courseLayerRef.current
+
+    if (!map || !courseLayer) return
+
+    courseLayer.clearLayers()
+
+    for (const line of data.lines ?? []) {
+      L.polyline(
+        [
+          [
+            line.a_latitude,
+            line.a_longitude,
+          ],
+          [
+            line.b_latitude,
+            line.b_longitude,
+          ],
+        ],
+        {
+          weight: 5,
+          opacity: 0.95,
+          dashArray:
+            line.line_type === 'start'
+              ? '10 5'
+              : undefined,
+        },
+      )
+        .addTo(courseLayer)
+        .bindTooltip(
+          line.line_type === 'start'
+            ? 'Linha de largada'
+            : 'Linha de chegada',
+        )
+    }
+
+    const startLine =
+      data.lines?.find(
+        (line) =>
+          line.line_type === 'start',
+      )
+
+    const finishLine =
+      data.lines?.find(
+        (line) =>
+          line.line_type === 'finish',
+      )
+
+    const route:
+      [number, number][] = []
+
+    if (startLine) {
+      route.push(
+        lineMidpoint(startLine),
+      )
+    }
+
+    route.push(
+      ...(data.course ?? []).map(
+        (point) =>
+          [
+            point.latitude,
+            point.longitude,
+          ] as [number, number],
+      ),
+    )
+
+    if (finishLine) {
+      route.push(
+        lineMidpoint(finishLine),
+      )
+    }
+
+    if (route.length > 1) {
+      L.polyline(route, {
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '8 8',
+      }).addTo(courseLayer)
+    }
+
+    for (
+      const point
+      of data.course ?? []
+    ) {
+      L.circleMarker(
+        [
+          point.latitude,
+          point.longitude,
+        ],
+        {
+          radius:
+            point.point_type ===
+            'waypoint'
+              ? 5
+              : 8,
+          weight: 2,
+          fillOpacity: 1,
+        },
+      )
+        .addTo(courseLayer)
+        .bindTooltip(
+          point.name ||
+            labelPointType(
+              point.point_type,
+            ),
+        )
+    }
+
+    const allPoints:
+      [number, number][] = []
+
+    for (
+      const track
+      of data.tracks ?? []
+    ) {
+      for (
+        const position
+        of track.positions
+      ) {
+        allPoints.push([
+          position.latitude,
+          position.longitude,
+        ])
+      }
+    }
+
+    for (
+      const point
+      of data.course ?? []
+    ) {
+      allPoints.push([
+        point.latitude,
+        point.longitude,
+      ])
+    }
+
+    for (
+      const line
+      of data.lines ?? []
+    ) {
+      allPoints.push([
+        line.a_latitude,
+        line.a_longitude,
+      ])
+
+      allPoints.push([
+        line.b_latitude,
+        line.b_longitude,
+      ])
+    }
+
+    if (allPoints.length === 1) {
+      map.setView(
+        allPoints[0],
+        13,
+      )
+    } else if (
+      allPoints.length > 1
+    ) {
+      map.fitBounds(
+        L.latLngBounds(allPoints),
+        {
+          padding: [45, 45],
+          maxZoom: 13,
+        },
+      )
+    }
+  }
+
+  useEffect(() => {
+    const layer =
+      boatsLayerRef.current
+
+    if (!layer) return
+
+    layer.clearLayers()
+
+    if (!replayData) return
+
+    for (
+      const track
+      of replayData.tracks
+    ) {
+      const position =
+        replayPositionAtTime(
+          track.positions,
+          currentTimeMs,
+        )
+
+      if (!position) continue
+
+      L.marker(
+        [
+          position.latitude,
+          position.longitude,
+        ],
+        {
+          icon: makeBoatIcon(
+            track.boatName,
+            position.course,
+            boatColor(
+              track.deviceId,
+            ),
+            true,
+          ),
+        },
+      )
+        .addTo(layer)
+        .bindTooltip(
+          track.boatName,
+          {
+            direction: 'top',
+          },
+        )
+    }
+  }, [
+    replayData,
+    currentTimeMs,
+  ])
+
+  useEffect(() => {
+    if (!playing || !replayData) {
+      if (
+        animationRef.current !== null
+      ) {
+        cancelAnimationFrame(
+          animationRef.current,
+        )
+        animationRef.current = null
+      }
+
+      lastAnimationTsRef.current = null
+      return
+    }
+
+    const endMs =
+      new Date(
+        replayData.event.endUtc,
+      ).getTime()
+
+    function tick(
+      timestamp: number,
+    ) {
+      if (
+        lastAnimationTsRef.current ===
+        null
+      ) {
+        lastAnimationTsRef.current =
+          timestamp
+      }
+
+      const deltaReal =
+        timestamp -
+        lastAnimationTsRef.current
+
+      lastAnimationTsRef.current =
+        timestamp
+
+      setCurrentTimeMs(
+        (current) => {
+          const next =
+            current +
+            deltaReal * speed
+
+          if (next >= endMs) {
+            setPlaying(false)
+            return endMs
+          }
+
+          return next
+        },
+      )
+
+      animationRef.current =
+        requestAnimationFrame(tick)
+    }
+
+    animationRef.current =
+      requestAnimationFrame(tick)
+
+    return () => {
+      if (
+        animationRef.current !== null
+      ) {
+        cancelAnimationFrame(
+          animationRef.current,
+        )
+      }
+
+      animationRef.current = null
+      lastAnimationTsRef.current = null
+    }
+  }, [
+    playing,
+    replayData,
+    speed,
+  ])
+
+  const startMs =
+    replayData
+      ? new Date(
+          replayData.event.startUtc,
+        ).getTime()
+      : 0
+
+  const endMs =
+    replayData
+      ? new Date(
+          replayData.event.endUtc,
+        ).getTime()
+      : 0
+
+  return (
+    <main className="replay-page">
+      <header className="replay-header">
+        <div>
+          <div className="brand-small">
+            REGATA LIVE
+          </div>
+
+          <h1>Histórico / Replay</h1>
+        </div>
+
+        <a
+          href="/"
+          className="replay-back-link"
+        >
+          ← Live
+        </a>
+      </header>
+
+      <div className="replay-toolbar">
+        <select
+          className="replay-event-select"
+          value={selectedEventId}
+          onChange={(event) =>
+            setSelectedEventId(
+              event.target.value,
+            )
+          }
+        >
+          {events.length === 0 && (
+            <option value="">
+              Sem regatas terminadas
+            </option>
+          )}
+
+          {events.map(
+            (event) => (
+              <option
+                key={event.id}
+                value={event.id}
+              >
+                {event.name}
+              </option>
+            ),
+          )}
+        </select>
+
+        {replayData && (
+          <div className="replay-summary">
+            {
+              replayData.tracks.filter(
+                (track) =>
+                  track.positions.length >
+                  0,
+              ).length
+            }
+            {' '}
+            barcos com histórico
+          </div>
+        )}
+      </div>
+
+      <section className="replay-map-container">
+        <div
+          ref={mapElementRef}
+          className="replay-map"
+        />
+
+        {loading && (
+          <div className="replay-overlay-message">
+            A carregar histórico do Traccar...
+          </div>
+        )}
+
+        {error && (
+          <div className="replay-overlay-error">
+            {error}
+          </div>
+        )}
+      </section>
+
+      {replayData && (
+        <section className="replay-player">
+          <div className="replay-player-top">
+            <button
+              type="button"
+              className="replay-play-button"
+              onClick={() =>
+                setPlaying(
+                  (value) => !value,
+                )
+              }
+            >
+              {playing
+                ? 'Pausa'
+                : 'Play'}
+            </button>
+
+            <div className="replay-time">
+              {formatReplayClock(
+                currentTimeMs,
+              )}
+            </div>
+
+            <select
+              className="replay-speed"
+              value={speed}
+              onChange={(event) =>
+                setSpeed(
+                  Number(
+                    event.target.value,
+                  ),
+                )
+              }
+            >
+              <option value={1}>
+                1×
+              </option>
+              <option value={5}>
+                5×
+              </option>
+              <option value={10}>
+                10×
+              </option>
+              <option value={30}>
+                30×
+              </option>
+            </select>
+          </div>
+
+          <input
+            className="replay-slider"
+            type="range"
+            min={startMs}
+            max={endMs}
+            step={1000}
+            value={Math.min(
+              endMs,
+              Math.max(
+                startMs,
+                currentTimeMs,
+              ),
+            )}
+            onChange={(event) => {
+              setPlaying(false)
+              setCurrentTimeMs(
+                Number(
+                  event.target.value,
+                ),
+              )
+            }}
+          />
+
+          <div className="replay-range-labels">
+            <span>
+              {formatReplayClock(
+                startMs,
+              )}
+            </span>
+
+            <span>
+              {formatReplayClock(
+                endMs,
+              )}
+            </span>
+          </div>
+        </section>
+      )}
+
+      <section className="replay-help">
+        Para uma regata antiga basta criar o evento com
+        início/fim, associar os participantes e desenhar o
+        percurso no Admin. O Replay vai buscar as posições
+        históricas ao Traccar para esse intervalo.
+      </section>
+    </main>
+  )
+}
+
+function replayPositionAtTime(
+  positions: ReplayPosition[],
+  timeMs: number,
+): ReplayPosition | null {
+  if (positions.length === 0) {
+    return null
+  }
+
+  const firstTime =
+    new Date(
+      positions[0].fixTime ?? 0,
+    ).getTime()
+
+  const lastTime =
+    new Date(
+      positions[
+        positions.length - 1
+      ].fixTime ?? 0,
+    ).getTime()
+
+  if (
+    !Number.isFinite(firstTime) ||
+    !Number.isFinite(lastTime)
+  ) {
+    return null
+  }
+
+  if (timeMs < firstTime) {
+    return null
+  }
+
+  if (timeMs >= lastTime) {
+    return positions[
+      positions.length - 1
+    ]
+  }
+
+  let low = 0
+  let high =
+    positions.length - 1
+
+  while (low <= high) {
+    const mid =
+      Math.floor(
+        (low + high) / 2,
+      )
+
+    const midTime =
+      new Date(
+        positions[mid].fixTime ??
+        0,
+      ).getTime()
+
+    if (midTime <= timeMs) {
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+
+  const beforeIndex =
+    Math.max(0, high)
+
+  const afterIndex =
+    Math.min(
+      positions.length - 1,
+      beforeIndex + 1,
+    )
+
+  const before =
+    positions[beforeIndex]
+
+  const after =
+    positions[afterIndex]
+
+  const beforeTime =
+    new Date(
+      before.fixTime ?? 0,
+    ).getTime()
+
+  const afterTime =
+    new Date(
+      after.fixTime ?? 0,
+    ).getTime()
+
+  if (
+    afterTime <= beforeTime
+  ) {
+    return before
+  }
+
+  const fraction =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        (timeMs - beforeTime) /
+          (afterTime - beforeTime),
+      ),
+    )
+
+  return {
+    latitude:
+      before.latitude +
+      (
+        after.latitude -
+        before.latitude
+      ) * fraction,
+
+    longitude:
+      before.longitude +
+      (
+        after.longitude -
+        before.longitude
+      ) * fraction,
+
+    speed:
+      before.speed +
+      (
+        after.speed -
+        before.speed
+      ) * fraction,
+
+    course:
+      interpolateCourse(
+        before.course,
+        after.course,
+        fraction,
+      ),
+
+    fixTime:
+      new Date(timeMs)
+        .toISOString(),
+  }
+}
+
+function interpolateCourse(
+  from: number,
+  to: number,
+  fraction: number,
+) {
+  const delta =
+    ((to - from + 540) % 360) -
+    180
+
+  return (
+    from + delta * fraction + 360
+  ) % 360
+}
+
+function formatReplayClock(
+  value: number,
+) {
+  if (
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return '--:--:--'
+  }
+
+  return new Intl.DateTimeFormat(
+    'pt-PT',
+    {
+      timeZone:
+        'Atlantic/Azores',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    },
+  ).format(new Date(value))
 }
 
 function AdminView() {
