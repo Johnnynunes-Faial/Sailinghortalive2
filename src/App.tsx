@@ -1973,7 +1973,7 @@ function ReplayView() {
                   )
                 }
               />
-              Rastos
+              Rastos (10 min)
             </label>
 
             <label>
@@ -2039,6 +2039,8 @@ function ReplayView() {
   )
 }
 
+const REPLAY_TRAIL_MINUTES = 10
+
 function replayTrackUntilTime(
   positions: ReplayPosition[],
   timeMs: number,
@@ -2046,6 +2048,12 @@ function replayTrackUntilTime(
   if (positions.length === 0) {
     return []
   }
+
+  const windowStartMs =
+    timeMs -
+    REPLAY_TRAIL_MINUTES *
+      60 *
+      1000
 
   const elapsed =
     positions.filter(
@@ -2057,6 +2065,7 @@ function replayTrackUntilTime(
 
         return (
           Number.isFinite(positionTime) &&
+          positionTime >= windowStartMs &&
           positionTime <= timeMs
         )
       },

@@ -1,18 +1,11 @@
-v0.10 — METEOROLOGIA + CAMADA DE RASTOS
+v0.10.1 — RASTOS DO REPLAY LIMITADOS A 10 MIN
 
-Carrega por cima da v0.9.3 como habitual.
+Carrega por cima da v0.10 como habitual.
 
-TESTE METEO
-1. Abrir o Live.
-2. Confirmar temperatura, vento e rajada no topo.
-3. Arrastar o mapa para outra zona/ilha.
-4. A leitura deve atualizar depois de uma pequena pausa.
-5. Renova também automaticamente a cada 10 minutos.
-
-TESTE RASTOS
-1. Em Modo Geral, “Rasto dos barcos” deve estar cinzento/desativado.
-2. Selecionar uma regata EM DIRETO.
-3. O checkbox deve ficar disponível.
-4. Ativar e confirmar o aparecimento do rasto.
-5. Desativar e confirmar que desaparece.
-6. Ao sair da regata Live, o rasto deve desligar automaticamente.
+TESTE:
+1. Abrir uma regata no Replay.
+2. Ativar “Rastos (10 min)”.
+3. Fazer Play.
+4. Confirmar que o rasto acompanha o barco.
+5. Depois de avançar mais de 10 minutos, o rasto mais antigo deve desaparecer.
+6. Só devem permanecer aproximadamente os últimos 10 minutos de cada barco.
