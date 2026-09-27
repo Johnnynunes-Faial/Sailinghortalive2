@@ -1,11 +1,20 @@
-# Sailing Horta Live 2 — v0.10.1
+# Sailing Horta Live 2 — v0.11
 
-Melhoria visual do Replay:
+## Cache persistente do Replay em D1
 
-- o rasto de cada barco deixa de mostrar todo o percurso já feito;
-- mostra apenas os últimos 10 minutos de movimento;
-- à medida que o Replay avança, o rasto antigo vai desaparecendo;
-- reduz bastante a confusão visual em regatas com muitos barcos ou percursos circulares;
-- mantém a opção para ligar/desligar os rastos.
+Os tracks históricos deixam de ser pedidos ao Traccar sempre que alguém abre um Replay.
 
-O botão aparece agora como “Rastos (10 min)”.
+Funcionamento:
+- na primeira abertura de uma regata, cada barco é procurado na cache D1;
+- se ainda não existir, o Worker pede o histórico desse barco ao Traccar;
+- o track processado é guardado na tabela `replay_track_cache`;
+- nas aberturas seguintes, o track vem diretamente da D1;
+- o percurso, bóias e linhas continuam a ser lidos das tabelas normais do evento.
+
+Isto significa que podes continuar a ajustar o percurso de uma regata no Admin sem voltar a descarregar os tracks do Traccar.
+
+A cache é validada pelo intervalo início/fim. Se alterares o horário da regata, o sistema ignora automaticamente o track antigo e volta a recolher o intervalo correto.
+
+Se o Traccar estiver temporariamente indisponível, essa falha não é gravada como um Replay vazio.
+
+A tabela é criada automaticamente pelo Worker; não precisas executar SQL manualmente.

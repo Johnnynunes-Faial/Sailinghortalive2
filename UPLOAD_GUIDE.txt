@@ -1,11 +1,20 @@
-v0.10.1 — RASTOS DO REPLAY LIMITADOS A 10 MIN
+v0.11 — CACHE PERSISTENTE DO REPLAY
 
-Carrega por cima da v0.10 como habitual.
+Carrega por cima da v0.10.1 como habitual.
 
-TESTE:
-1. Abrir uma regata no Replay.
-2. Ativar “Rastos (10 min)”.
-3. Fazer Play.
-4. Confirmar que o rasto acompanha o barco.
-5. Depois de avançar mais de 10 minutos, o rasto mais antigo deve desaparecer.
-6. Só devem permanecer aproximadamente os últimos 10 minutos de cada barco.
+Não precisas criar nenhuma tabela manualmente.
+
+TESTE RECOMENDADO
+1. Faz o deploy.
+2. Abre uma regata antiga no Replay.
+3. A primeira abertura pode demorar o normal: ainda consulta o Traccar.
+4. Volta à lista e abre a mesma regata novamente.
+5. A segunda abertura deve usar os tracks guardados em D1 e deixar de consultar o Traccar para esses barcos.
+
+ALTERAÇÕES AO PERCURSO
+- Podes continuar a ajustar bóias, waypoints e linhas no Admin.
+- Esses elementos NÃO ficam presos na cache.
+- O Replay usa sempre o percurso atual da base de dados.
+
+ALTERAÇÕES AO HORÁRIO
+- Se mudares início/fim da regata, o sistema deteta que o intervalo mudou e volta automaticamente ao Traccar para atualizar os tracks.

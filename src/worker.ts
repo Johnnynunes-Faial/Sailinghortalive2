@@ -131,6 +131,32 @@ async function ensureCourseLinesTable(env: Env) {
 }
 
 
+async function ensureReplayTrackCacheTable(
+  env: Env,
+) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS replay_track_cache (
+      event_id TEXT NOT NULL,
+      traccar_device_id INTEGER NOT NULL,
+      from_iso TEXT NOT NULL,
+      to_iso TEXT NOT NULL,
+      track_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (
+        event_id,
+        traccar_device_id
+      )
+    )
+  `).run()
+
+  await env.DB.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_replay_track_cache_event
+    ON replay_track_cache(event_id)
+  `).run()
+}
+
+
 function haversineNm(
   lat1: number,
   lon1: number,
@@ -349,7 +375,10 @@ async function getReplayTrackForDevice(
   )
 
   if (!response.ok) {
-    return []
+    return {
+      ok: false,
+      positions: [] as TraccarPosition[],
+    }
   }
 
   const positions =
@@ -379,7 +408,11 @@ async function getReplayTrackForDevice(
       return ta - tb
     })
 
-  return downsamplePositions(valid)
+  return {
+    ok: true,
+    positions:
+      downsamplePositions(valid),
+  }
 }
 
 function effectiveEventStatus(event: {
@@ -597,40 +630,160 @@ export default {
           ORDER BY CASE line_type WHEN 'start' THEN 0 ELSE 1 END
         `).bind(eventId).all()
 
-        const rows = participants.results ?? []
+        const rows =
+          participants.results ?? []
 
-        const tracks = await Promise.all(
-          rows.map(async (participant) => {
-            const positions =
-              await getReplayTrackForDevice(
-                env,
-                Number(participant.traccar_device_id),
-                fromIso,
-                toIso,
-              )
-
-            return {
-              deviceId:
-                Number(participant.traccar_device_id),
-
-              boatName:
-                participant.boat_name,
-
-              positions:
-                positions.map((position) => ({
-                  latitude: position.latitude,
-                  longitude: position.longitude,
-                  speed: position.speed ?? 0,
-                  course: position.course ?? 0,
-                  fixTime:
-                    position.fixTime ??
-                    position.deviceTime ??
-                    position.serverTime ??
-                    null,
-                })),
-            }
-          }),
+        await ensureReplayTrackCacheTable(
+          env,
         )
+
+        const cachedRows =
+          await env.DB.prepare(`
+            SELECT
+              traccar_device_id,
+              from_iso,
+              to_iso,
+              track_json
+            FROM replay_track_cache
+            WHERE event_id = ?
+          `).bind(eventId).all<{
+            traccar_device_id: number
+            from_iso: string
+            to_iso: string
+            track_json: string
+          }>()
+
+        const cacheByDevice =
+          new Map(
+            (cachedRows.results ?? []).map(
+              (row) => [
+                Number(
+                  row.traccar_device_id,
+                ),
+                row,
+              ],
+            ),
+          )
+
+        let cacheHits = 0
+        let traccarFetches = 0
+
+        const tracks =
+          await Promise.all(
+            rows.map(
+              async (participant) => {
+                const deviceId =
+                  Number(
+                    participant.traccar_device_id,
+                  )
+
+                const cached =
+                  cacheByDevice.get(
+                    deviceId,
+                  )
+
+                if (
+                  cached &&
+                  cached.from_iso ===
+                    fromIso &&
+                  cached.to_iso ===
+                    toIso
+                ) {
+                  try {
+                    const positions =
+                      JSON.parse(
+                        cached.track_json,
+                      ) as Array<{
+                        latitude: number
+                        longitude: number
+                        speed: number
+                        course: number
+                        fixTime: string | null
+                      }>
+
+                    cacheHits += 1
+
+                    return {
+                      deviceId,
+                      boatName:
+                        participant.boat_name,
+                      positions,
+                    }
+                  } catch {
+                    // Cache corrompida:
+                    // volta a pedir este barco.
+                  }
+                }
+
+                traccarFetches += 1
+
+                const replayTrack =
+                  await getReplayTrackForDevice(
+                    env,
+                    deviceId,
+                    fromIso,
+                    toIso,
+                  )
+
+                const positions =
+                  replayTrack.positions.map(
+                    (position) => ({
+                      latitude:
+                        position.latitude,
+                      longitude:
+                        position.longitude,
+                      speed:
+                        position.speed ?? 0,
+                      course:
+                        position.course ?? 0,
+                      fixTime:
+                        position.fixTime ??
+                        position.deviceTime ??
+                        position.serverTime ??
+                        null,
+                    }),
+                  )
+
+                if (replayTrack.ok) {
+                  await env.DB.prepare(`
+                    INSERT INTO replay_track_cache (
+                      event_id,
+                      traccar_device_id,
+                      from_iso,
+                      to_iso,
+                      track_json,
+                      updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT (
+                      event_id,
+                      traccar_device_id
+                    )
+                    DO UPDATE SET
+                      from_iso = excluded.from_iso,
+                      to_iso = excluded.to_iso,
+                      track_json = excluded.track_json,
+                      updated_at = CURRENT_TIMESTAMP
+                  `).bind(
+                    eventId,
+                    deviceId,
+                    fromIso,
+                    toIso,
+                    JSON.stringify(
+                      positions,
+                    ),
+                  ).run()
+                }
+
+                return {
+                  deviceId,
+                  boatName:
+                    participant.boat_name,
+                  positions,
+                }
+              },
+            ),
+          )
 
         return json({
           ok: true,
@@ -648,6 +801,10 @@ export default {
           lines:
             lines.results ?? [],
           tracks,
+          cache: {
+            hits: cacheHits,
+            traccarFetches,
+          },
         })
       } catch (error) {
         return json(
