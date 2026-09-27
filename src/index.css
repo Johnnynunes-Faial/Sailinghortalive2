@@ -479,3 +479,134 @@ button {
     font-size: 16px;
   }
 }
+.admin-page {
+  min-height: 100vh;
+  background: #f4f7f9;
+  color: #071826;
+}
+
+.admin-header {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 24px;
+  background: #071826;
+  color: white;
+}
+
+.admin-header h1 {
+  margin: 2px 0 0;
+  font-size: 24px;
+}
+
+.back-live-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.admin-content {
+  width: min(1100px, calc(100% - 32px));
+  margin: 26px auto;
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 420px)
+    1fr;
+  gap: 22px;
+}
+
+.admin-card {
+  border-radius: 14px;
+  padding: 20px;
+  background: white;
+  box-shadow:
+    0 6px 24px
+    rgba(7, 24, 38, 0.08);
+}
+
+.admin-card h2 {
+  margin: 0 0 18px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-form input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #ccd5dd;
+  border-radius: 8px;
+  padding: 0 11px;
+  background: white;
+  color: #071826;
+}
+
+.event-list {
+  display: grid;
+  gap: 10px;
+}
+
+.event-row {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8ee;
+  border-radius: 10px;
+}
+
+.event-meta {
+  margin-top: 4px;
+  color: #71808d;
+  font-size: 12px;
+}
+
+.edit-event-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #eef2f5;
+  color: #071826;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 22px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  color: #71808d;
+  text-align: center;
+}
+
+@media (max-width: 750px) {
+  .admin-header {
+    padding: 14px;
+  }
+
+  .admin-content {
+    width: calc(100% - 20px);
+    margin: 10px auto;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-card {
+    padding: 16px;
+  }
+
+  .admin-form input {
+    font-size: 16px;
+  }
+}
