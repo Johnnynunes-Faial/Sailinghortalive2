@@ -110,31 +110,54 @@ export default {
           ]),
         )
 
-        const boats = devices.map((device) => {
-          const position = positionByDevice.get(device.id)
+        const MAX_POSITION_AGE_MS = 10 * 60 * 1000
 
-          return {
-            id: device.id,
-            name: device.name,
-            uniqueId: device.uniqueId,
-            status: device.status ?? 'unknown',
-            lastUpdate: device.lastUpdate ?? null,
+const now = Date.now()
 
-            position: position
-              ? {
-                  latitude: position.latitude,
-                  longitude: position.longitude,
-                  speed: position.speed ?? 0,
-                  course: position.course ?? 0,
-                  fixTime:
-                    position.fixTime ??
-                    position.deviceTime ??
-                    position.serverTime ??
-                    null,
-                }
-              : null,
-          }
-        })
+const boats = devices
+  .map((device) => {
+    const position = positionByDevice.get(device.id)
+
+    if (!position) {
+      return null
+    }
+
+    const positionTime =
+      position.fixTime ??
+      position.deviceTime ??
+      position.serverTime ??
+      null
+
+    if (!positionTime) {
+      return null
+    }
+
+    const ageMs = now - new Date(positionTime).getTime()
+
+    if (
+      !Number.isFinite(ageMs) ||
+      ageMs > MAX_POSITION_AGE_MS
+    ) {
+      return null
+    }
+
+    return {
+      id: device.id,
+      name: device.name,
+      uniqueId: device.uniqueId,
+      status: device.status ?? 'unknown',
+      lastUpdate: device.lastUpdate ?? null,
+
+      position: {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: position.speed ?? 0,
+        course: position.course ?? 0,
+        fixTime: positionTime,
+      },
+    }
+  })
+  .filter((boat): boat is NonNullable<typeof boat> => boat !== null)
 
         return json({
           ok: true,
