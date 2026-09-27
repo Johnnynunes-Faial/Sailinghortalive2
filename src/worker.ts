@@ -113,6 +113,23 @@ async function ensureLibraryTable(env: Env) {
   `).run()
 }
 
+async function ensureCourseLinesTable(env: Env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS course_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id TEXT NOT NULL,
+      line_type TEXT NOT NULL,
+      a_latitude REAL NOT NULL,
+      a_longitude REAL NOT NULL,
+      b_latitude REAL NOT NULL,
+      b_longitude REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(event_id, line_type)
+    )
+  `).run()
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -167,12 +184,29 @@ export default {
           ORDER BY point_order ASC
         `).bind(eventId).all()
 
+        await ensureCourseLinesTable(env)
+
+        const lines = await env.DB.prepare(`
+          SELECT
+            id,
+            event_id,
+            line_type,
+            a_latitude,
+            a_longitude,
+            b_latitude,
+            b_longitude
+          FROM course_lines
+          WHERE event_id = ?
+          ORDER BY CASE line_type WHEN 'start' THEN 0 ELSE 1 END
+        `).bind(eventId).all()
+
         return json({
           ok: true,
           eventId,
           updatedAt: new Date().toISOString(),
           boats,
           course: course.results ?? [],
+          lines: lines.results ?? [],
         })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro Live da regata' }, 500)
@@ -243,9 +277,12 @@ export default {
       try {
         const eventId = adminEventMatch[1]
 
+        await ensureCourseLinesTable(env)
+
         await env.DB.batch([
           env.DB.prepare(`DELETE FROM event_participants WHERE event_id = ?`).bind(eventId),
           env.DB.prepare(`DELETE FROM course_points WHERE event_id = ?`).bind(eventId),
+          env.DB.prepare(`DELETE FROM course_lines WHERE event_id = ?`).bind(eventId),
           env.DB.prepare(`DELETE FROM events WHERE id = ?`).bind(eventId),
         ])
 
@@ -406,6 +443,90 @@ export default {
         return json({ ok: true, count: points.length })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao guardar percurso' }, 500)
+      }
+    }
+
+    const courseLinesMatch = url.pathname.match(
+      /^\/admin\/api\/events\/([^/]+)\/course-lines$/,
+    )
+
+    if (courseLinesMatch && request.method === 'GET') {
+      try {
+        await ensureCourseLinesTable(env)
+
+        const eventId = courseLinesMatch[1]
+        const result = await env.DB.prepare(`
+          SELECT
+            id,
+            event_id,
+            line_type,
+            a_latitude,
+            a_longitude,
+            b_latitude,
+            b_longitude
+          FROM course_lines
+          WHERE event_id = ?
+          ORDER BY CASE line_type WHEN 'start' THEN 0 ELSE 1 END
+        `).bind(eventId).all()
+
+        return json({ ok: true, lines: result.results ?? [] })
+      } catch (error) {
+        return json({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Erro ao carregar linhas',
+        }, 500)
+      }
+    }
+
+    if (courseLinesMatch && request.method === 'PUT') {
+      try {
+        await ensureCourseLinesTable(env)
+
+        const eventId = courseLinesMatch[1]
+        const body = await request.json() as {
+          lines?: Array<{
+            lineType: 'start' | 'finish'
+            aLatitude: number
+            aLongitude: number
+            bLatitude: number
+            bLongitude: number
+          }>
+        }
+
+        const lines = Array.isArray(body.lines) ? body.lines : []
+
+        const statements = [
+          env.DB.prepare(`DELETE FROM course_lines WHERE event_id = ?`).bind(eventId),
+          ...lines.map((line) =>
+            env.DB.prepare(`
+              INSERT INTO course_lines (
+                event_id,
+                line_type,
+                a_latitude,
+                a_longitude,
+                b_latitude,
+                b_longitude
+              )
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).bind(
+              eventId,
+              line.lineType,
+              line.aLatitude,
+              line.aLongitude,
+              line.bLatitude,
+              line.bLongitude,
+            ),
+          ),
+        ]
+
+        await env.DB.batch(statements)
+
+        return json({ ok: true, count: lines.length })
+      } catch (error) {
+        return json({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Erro ao guardar linhas',
+        }, 500)
       }
     }
 

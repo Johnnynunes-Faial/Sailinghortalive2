@@ -1,15 +1,12 @@
-# Sailing Horta Live 2 — v0.3
+# Sailing Horta Live 2 — v0.3.1
 
-Inclui:
-- eliminar e editar eventos;
-- participantes por evento;
-- módulo de percurso por evento;
-- adicionar pontos clicando no mapa;
-- adicionar por coordenadas;
-- biblioteca de bóias com cópia independente para cada percurso;
-- drag & drop dos pontos;
-- ordenação e remoção de pontos;
-- visualização do percurso no Live;
-- ícone SVG de veleiro;
-- cores estáveis diferentes por barco;
-- privacidade: barcos com posição >10 min não aparecem.
+Correção das linhas de largada e chegada.
+
+- Linha de largada = 2 extremos independentes.
+- Linha de chegada = 2 extremos independentes.
+- Cada extremo pode ser arrastado no mapa.
+- O trajeto visual liga o ponto médio da largada às marcas e depois ao ponto médio da chegada.
+- As linhas são guardadas por evento numa tabela própria `course_lines`.
+- Bóias e waypoints continuam em `course_points`.
+- Eliminar um evento elimina também as suas linhas.
+- A tabela `course_lines` é criada automaticamente pelo Worker na primeira utilização.

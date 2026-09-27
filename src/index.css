@@ -742,3 +742,62 @@ button {
     width: 100%;
   }
 }
+
+
+.line-builder-panel {
+  margin-bottom: 14px;
+}
+
+.panel-note {
+  margin: -6px 0 12px;
+  color: #607581;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.line-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.line-tool {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 13px;
+  background: #dfe9ef;
+  color: #102331;
+  font-weight: 800;
+}
+
+.line-tool.active {
+  background: #1f7ae0;
+  color: white;
+}
+
+.line-endpoint-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.line-endpoint {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+.line-endpoint.start {
+  background: #2eaa64;
+}
+
+.line-endpoint.finish {
+  background: #b42318;
+}

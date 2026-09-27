@@ -32,11 +32,21 @@ type EventItem = {
 type CoursePoint = {
   id?: number
   event_id?: string
-  point_type: 'start' | 'buoy' | 'waypoint' | 'finish'
+  point_type: 'buoy' | 'waypoint'
   name: string | null
   latitude: number
   longitude: number
   point_order: number
+}
+
+type CourseLine = {
+  id?: number
+  event_id?: string
+  line_type: 'start' | 'finish'
+  a_latitude: number
+  a_longitude: number
+  b_latitude: number
+  b_longitude: number
 }
 
 type LiveResponse = {
@@ -44,6 +54,7 @@ type LiveResponse = {
   updatedAt: string
   boats: Boat[]
   course?: CoursePoint[]
+  lines?: CourseLine[]
 }
 
 type AdminDevice = {
@@ -96,6 +107,7 @@ function PublicLiveView() {
   const [selectedEventId, setSelectedEventId] = useState('general')
   const [connected, setConnected] = useState(false)
   const [course, setCourse] = useState<CoursePoint[]>([])
+  const [lines, setLines] = useState<CourseLine[]>([])
 
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
@@ -144,12 +156,14 @@ function PublicLiveView() {
 
         setBoats(data.boats ?? [])
         setCourse(data.course ?? [])
+        setLines(data.lines ?? [])
         setConnected(data.ok === true)
       } catch {
         if (active) {
           setConnected(false)
           setBoats([])
           setCourse([])
+          setLines([])
         }
       }
     }
@@ -207,31 +221,66 @@ function PublicLiveView() {
     if (layer) {
       layer.clearLayers()
 
-      if (course.length > 0) {
-        const latLngs = course.map((point) => [point.latitude, point.longitude] as [number, number])
+      const startLine = lines.find((line) => line.line_type === 'start')
+      const finishLine = lines.find((line) => line.line_type === 'finish')
 
-        L.polyline(latLngs, {
+      for (const line of lines) {
+        L.polyline(
+          [
+            [line.a_latitude, line.a_longitude],
+            [line.b_latitude, line.b_longitude],
+          ],
+          {
+            weight: 5,
+            opacity: 0.95,
+            dashArray: line.line_type === 'start' ? '10 5' : undefined,
+          },
+        )
+          .addTo(layer)
+          .bindTooltip(
+            line.line_type === 'start' ? 'Linha de largada' : 'Linha de chegada',
+          )
+      }
+
+      const routeLatLngs: [number, number][] = []
+
+      if (startLine) {
+        routeLatLngs.push(lineMidpoint(startLine))
+      }
+
+      routeLatLngs.push(
+        ...course.map(
+          (point) => [point.latitude, point.longitude] as [number, number],
+        ),
+      )
+
+      if (finishLine) {
+        routeLatLngs.push(lineMidpoint(finishLine))
+      }
+
+      if (routeLatLngs.length > 1) {
+        L.polyline(routeLatLngs, {
           weight: 3,
-          opacity: 0.85,
+          opacity: 0.75,
           dashArray: '8 8',
         }).addTo(layer)
+      }
 
-        for (const point of course) {
-          L.circleMarker([point.latitude, point.longitude], {
-            radius: point.point_type === 'waypoint' ? 5 : 8,
-            weight: 2,
-            fillOpacity: 1,
+      for (const point of course) {
+        L.circleMarker([point.latitude, point.longitude], {
+          radius: point.point_type === 'waypoint' ? 5 : 8,
+          weight: 2,
+          fillOpacity: 1,
+        })
+          .addTo(layer)
+          .bindTooltip(point.name || labelPointType(point.point_type), {
+            permanent: false,
+            direction: 'top',
           })
-            .addTo(layer)
-            .bindTooltip(point.name || labelPointType(point.point_type), {
-              permanent: false,
-              direction: 'top',
-            })
-        }
       }
     }
 
-    const fitKey = `${selectedEventId}:${boats.map((b) => b.id).sort().join(',')}:${course.length}`
+    const fitKey = `${selectedEventId}:${boats.map((b) => b.id).sort().join(',')}:${course.length}:${lines.length}`
 
     if (lastFitKeyRef.current !== fitKey) {
       const points: L.LatLngExpression[] = []
@@ -242,6 +291,11 @@ function PublicLiveView() {
 
       for (const point of course) {
         points.push([point.latitude, point.longitude])
+      }
+
+      for (const line of lines) {
+        points.push([line.a_latitude, line.a_longitude])
+        points.push([line.b_latitude, line.b_longitude])
       }
 
       if (points.length === 1) {
@@ -255,7 +309,7 @@ function PublicLiveView() {
 
       lastFitKeyRef.current = fitKey
     }
-  }, [boats, course, selectedEventId])
+  }, [boats, course, lines, selectedEventId])
 
   function showAll() {
     const map = mapRef.current
@@ -269,6 +323,11 @@ function PublicLiveView() {
 
     for (const point of course) {
       points.push([point.latitude, point.longitude])
+    }
+
+    for (const line of lines) {
+      points.push([line.a_latitude, line.a_longitude])
+      points.push([line.b_latitude, line.b_longitude])
     }
 
     if (points.length === 1) map.setView(points[0], 13)
@@ -741,13 +800,20 @@ function CourseEditor({ event }: { event: EventItem }) {
   const layerRef = useRef<L.LayerGroup | null>(null)
 
   const [points, setPoints] = useState<CoursePoint[]>([])
+  const [lines, setLines] = useState<CourseLine[]>([])
   const [library, setLibrary] = useState<LibraryBuoy[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
   const [newType, setNewType] = useState<CoursePoint['point_type']>('buoy')
+
+  const [lineTool, setLineTool] = useState<'start' | 'finish' | null>(null)
+  const [pendingLineA, setPendingLineA] = useState<L.LatLng | null>(null)
+
   const [coordName, setCoordName] = useState('')
   const [coordLat, setCoordLat] = useState('')
   const [coordLon, setCoordLon] = useState('')
+
   const [libraryName, setLibraryName] = useState('')
   const [libraryLat, setLibraryLat] = useState('')
   const [libraryLon, setLibraryLon] = useState('')
@@ -758,12 +824,23 @@ function CourseEditor({ event }: { event: EventItem }) {
         credentials: 'same-origin',
         cache: 'no-store',
       }).then((r) => r.json()),
+
+      fetch(`/admin/api/events/${encodeURIComponent(event.id)}/course-lines`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      }).then((r) => r.json()),
+
       fetch('/admin/api/buoy-library', {
         credentials: 'same-origin',
         cache: 'no-store',
       }).then((r) => r.json()),
-    ]).then(([courseData, libraryData]) => {
-      setPoints((courseData.points ?? []).map(normalizeCoursePoint))
+    ]).then(([courseData, linesData, libraryData]) => {
+      setPoints(
+        (courseData.points ?? [])
+          .filter((point: any) => point.point_type === 'buoy' || point.point_type === 'waypoint')
+          .map(normalizeCoursePoint),
+      )
+      setLines((linesData.lines ?? []).map(normalizeCourseLine))
       setLibrary(libraryData.buoys ?? [])
     })
   }, [event.id])
@@ -781,7 +858,47 @@ function CourseEditor({ event }: { event: EventItem }) {
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
-    map.on('click', (e) => {
+    return () => {
+      map.remove()
+      mapRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const onClick = (e: L.LeafletMouseEvent) => {
+      if (lineTool) {
+        if (!pendingLineA) {
+          setPendingLineA(e.latlng)
+          setMessage(
+            lineTool === 'start'
+              ? 'Primeiro extremo da linha de largada definido. Clica no segundo extremo.'
+              : 'Primeiro extremo da linha de chegada definido. Clica no segundo extremo.',
+          )
+          return
+        }
+
+        const newLine: CourseLine = {
+          line_type: lineTool,
+          a_latitude: pendingLineA.lat,
+          a_longitude: pendingLineA.lng,
+          b_latitude: e.latlng.lat,
+          b_longitude: e.latlng.lng,
+        }
+
+        setLines((current) => [
+          ...current.filter((line) => line.line_type !== lineTool),
+          newLine,
+        ])
+
+        setPendingLineA(null)
+        setLineTool(null)
+        setMessage('Linha definida. Podes arrastar os dois extremos para ajustar.')
+        return
+      }
+
       setPoints((current) => [
         ...current,
         {
@@ -792,13 +909,13 @@ function CourseEditor({ event }: { event: EventItem }) {
           point_order: current.length,
         },
       ])
-    })
-
-    return () => {
-      map.remove()
-      mapRef.current = null
     }
-  }, [newType])
+
+    map.on('click', onClick)
+    return () => {
+      map.off('click', onClick)
+    }
+  }, [newType, lineTool, pendingLineA])
 
   useEffect(() => {
     const map = mapRef.current
@@ -807,15 +924,73 @@ function CourseEditor({ event }: { event: EventItem }) {
 
     layer.clearLayers()
 
-    if (points.length > 1) {
+    const startLine = lines.find((line) => line.line_type === 'start')
+    const finishLine = lines.find((line) => line.line_type === 'finish')
+
+    for (const line of lines) {
       L.polyline(
-        points.map((p) => [p.latitude, p.longitude] as [number, number]),
+        [
+          [line.a_latitude, line.a_longitude],
+          [line.b_latitude, line.b_longitude],
+        ],
         {
-          weight: 3,
-          dashArray: '8 8',
-          opacity: 0.9,
+          weight: 5,
+          opacity: 0.95,
+          dashArray: line.line_type === 'start' ? '10 5' : undefined,
         },
       ).addTo(layer)
+
+      const endpointA = L.marker(
+        [line.a_latitude, line.a_longitude],
+        {
+          draggable: true,
+          icon: makeLineEndpointIcon(line.line_type, 'A'),
+        },
+      ).addTo(layer)
+
+      const endpointB = L.marker(
+        [line.b_latitude, line.b_longitude],
+        {
+          draggable: true,
+          icon: makeLineEndpointIcon(line.line_type, 'B'),
+        },
+      ).addTo(layer)
+
+      endpointA.on('dragend', () => {
+        const p = endpointA.getLatLng()
+        setLines((current) =>
+          current.map((item) =>
+            item.line_type === line.line_type
+              ? { ...item, a_latitude: p.lat, a_longitude: p.lng }
+              : item,
+          ),
+        )
+      })
+
+      endpointB.on('dragend', () => {
+        const p = endpointB.getLatLng()
+        setLines((current) =>
+          current.map((item) =>
+            item.line_type === line.line_type
+              ? { ...item, b_latitude: p.lat, b_longitude: p.lng }
+              : item,
+          ),
+        )
+      })
+    }
+
+    const route: [number, number][] = []
+
+    if (startLine) route.push(lineMidpoint(startLine))
+    route.push(...points.map((p) => [p.latitude, p.longitude] as [number, number]))
+    if (finishLine) route.push(lineMidpoint(finishLine))
+
+    if (route.length > 1) {
+      L.polyline(route, {
+        weight: 3,
+        dashArray: '8 8',
+        opacity: 0.75,
+      }).addTo(layer)
     }
 
     points.forEach((point, index) => {
@@ -837,14 +1012,44 @@ function CourseEditor({ event }: { event: EventItem }) {
       })
     })
 
-    if (points.length > 0) {
-      const bounds = L.latLngBounds(
-        points.map((p) => [p.latitude, p.longitude] as [number, number]),
-      )
-      if (points.length === 1) map.setView(bounds.getCenter(), 14)
-      else map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
+    if (pendingLineA) {
+      L.circleMarker([pendingLineA.lat, pendingLineA.lng], {
+        radius: 7,
+        weight: 3,
+        fillOpacity: 1,
+      }).addTo(layer)
     }
-  }, [points])
+
+    const boundsPoints: [number, number][] = []
+
+    for (const point of points) {
+      boundsPoints.push([point.latitude, point.longitude])
+    }
+
+    for (const line of lines) {
+      boundsPoints.push([line.a_latitude, line.a_longitude])
+      boundsPoints.push([line.b_latitude, line.b_longitude])
+    }
+
+    if (boundsPoints.length === 1) {
+      map.setView(boundsPoints[0], 14)
+    } else if (boundsPoints.length > 1) {
+      map.fitBounds(L.latLngBounds(boundsPoints), {
+        padding: [40, 40],
+        maxZoom: 14,
+      })
+    }
+  }, [points, lines, pendingLineA])
+
+  function startLineDrawing(type: 'start' | 'finish') {
+    setLineTool(type)
+    setPendingLineA(null)
+    setMessage(
+      type === 'start'
+        ? 'Clica no primeiro extremo da linha de largada.'
+        : 'Clica no primeiro extremo da linha de chegada.',
+    )
+  }
 
   function addByCoordinates() {
     const lat = Number(coordLat.replace(',', '.'))
@@ -890,7 +1095,7 @@ function CourseEditor({ event }: { event: EventItem }) {
     setMessage(null)
 
     try {
-      const payload = points.map((point, index) => ({
+      const pointPayload = points.map((point, index) => ({
         pointType: point.point_type,
         name: point.name,
         latitude: point.latitude,
@@ -898,23 +1103,51 @@ function CourseEditor({ event }: { event: EventItem }) {
         pointOrder: index,
       }))
 
-      const response = await fetch(
-        `/admin/api/events/${encodeURIComponent(event.id)}/course`,
-        {
-          method: 'PUT',
-          credentials: 'same-origin',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ points: payload }),
-        },
-      )
+      const linePayload = lines.map((line) => ({
+        lineType: line.line_type,
+        aLatitude: line.a_latitude,
+        aLongitude: line.a_longitude,
+        bLatitude: line.b_latitude,
+        bLongitude: line.b_longitude,
+      }))
 
-      const data = await response.json()
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Erro ao guardar')
+      const [pointsResponse, linesResponse] = await Promise.all([
+        fetch(
+          `/admin/api/events/${encodeURIComponent(event.id)}/course`,
+          {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ points: pointPayload }),
+          },
+        ),
+        fetch(
+          `/admin/api/events/${encodeURIComponent(event.id)}/course-lines`,
+          {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ lines: linePayload }),
+          },
+        ),
+      ])
+
+      const pointsData = await pointsResponse.json()
+      const linesData = await linesResponse.json()
+
+      if (!pointsResponse.ok || !pointsData.ok) {
+        throw new Error(pointsData.error || 'Erro ao guardar percurso')
+      }
+
+      if (!linesResponse.ok || !linesData.ok) {
+        throw new Error(linesData.error || 'Erro ao guardar linhas')
+      }
 
       setPoints((current) =>
         current.map((point, index) => ({ ...point, point_order: index })),
       )
-      setMessage('Percurso guardado.')
+
+      setMessage('Percurso e linhas guardados.')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Erro ao guardar percurso')
     } finally {
@@ -943,6 +1176,7 @@ function CourseEditor({ event }: { event: EventItem }) {
     })
 
     const data = await response.json()
+
     if (!response.ok || !data.ok) {
       setMessage(data.error || 'Erro ao criar bóia na biblioteca')
       return
@@ -979,25 +1213,84 @@ function CourseEditor({ event }: { event: EventItem }) {
       const copy = [...current]
       const [item] = copy.splice(index, 1)
       copy.splice(target, 0, item)
-      return copy.map((point, i) => ({ ...point, point_order: i }))
+
+      return copy.map((point, i) => ({
+        ...point,
+        point_order: i,
+      }))
     })
   }
 
   return (
     <div className="course-editor">
+      <section className="course-panel line-builder-panel">
+        <h3>Linhas de largada e chegada</h3>
+
+        <p className="panel-note">
+          Cada linha é definida por dois extremos. Clica no primeiro ponto e depois no segundo.
+          Depois podes arrastar cada extremo.
+        </p>
+
+        <div className="line-buttons">
+          <button
+            className={lineTool === 'start' ? 'line-tool active' : 'line-tool'}
+            onClick={() => startLineDrawing('start')}
+          >
+            Definir linha de largada
+          </button>
+
+          <button
+            className={lineTool === 'finish' ? 'line-tool active' : 'line-tool'}
+            onClick={() => startLineDrawing('finish')}
+          >
+            Definir linha de chegada
+          </button>
+
+          {lines.some((line) => line.line_type === 'start') && (
+            <button
+              className="secondary-button"
+              onClick={() =>
+                setLines((current) =>
+                  current.filter((line) => line.line_type !== 'start'),
+                )
+              }
+            >
+              Remover largada
+            </button>
+          )}
+
+          {lines.some((line) => line.line_type === 'finish') && (
+            <button
+              className="secondary-button"
+              onClick={() =>
+                setLines((current) =>
+                  current.filter((line) => line.line_type !== 'finish'),
+                )
+              }
+            >
+              Remover chegada
+            </button>
+          )}
+        </div>
+      </section>
+
       <div className="course-toolbar">
         <div>
-          <label>Tipo de ponto</label>
-          <select value={newType} onChange={(e) => setNewType(e.target.value as CoursePoint['point_type'])}>
-            <option value="start">Partida</option>
+          <label>Adicionar marca</label>
+          <select
+            value={newType}
+            onChange={(e) =>
+              setNewType(e.target.value as CoursePoint['point_type'])
+            }
+            disabled={lineTool !== null}
+          >
             <option value="buoy">Bóia</option>
             <option value="waypoint">Waypoint</option>
-            <option value="finish">Chegada</option>
           </select>
         </div>
 
         <div className="course-help">
-          Clica no mapa para adicionar o tipo selecionado. Depois podes arrastar o ponto.
+          Fora do modo de criação de linha, clica no mapa para adicionar a marca selecionada.
         </div>
       </div>
 
@@ -1005,7 +1298,7 @@ function CourseEditor({ event }: { event: EventItem }) {
 
       <div className="course-grid">
         <section className="course-panel">
-          <h3>Adicionar por coordenadas</h3>
+          <h3>Adicionar marca por coordenadas</h3>
 
           <input
             placeholder="Nome"
@@ -1035,56 +1328,116 @@ function CourseEditor({ event }: { event: EventItem }) {
           <h3>Biblioteca de bóias</h3>
 
           <div className="library-list">
-            {library.length === 0 && <div className="empty-state compact">Sem bóias na biblioteca.</div>}
+            {library.length === 0 && (
+              <div className="empty-state compact">
+                Sem bóias na biblioteca.
+              </div>
+            )}
 
             {library.map((buoy) => (
               <div className="library-row" key={buoy.id}>
                 <div>
                   <strong>{buoy.name}</strong>
-                  <span>{buoy.latitude.toFixed(6)}, {buoy.longitude.toFixed(6)}</span>
+                  <span>
+                    {buoy.latitude.toFixed(6)}, {buoy.longitude.toFixed(6)}
+                  </span>
                 </div>
 
                 <div className="library-actions">
-                  <button className="secondary-button" onClick={() => addFromLibrary(buoy)}>Copiar para percurso</button>
-                  <button className="icon-danger" onClick={() => deleteLibraryBuoy(buoy.id)}>×</button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => addFromLibrary(buoy)}
+                  >
+                    Copiar para percurso
+                  </button>
+
+                  <button
+                    className="icon-danger"
+                    onClick={() => deleteLibraryBuoy(buoy.id)}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="library-create">
-            <input placeholder="Nome da bóia" value={libraryName} onChange={(e) => setLibraryName(e.target.value)} />
+            <input
+              placeholder="Nome da bóia"
+              value={libraryName}
+              onChange={(e) => setLibraryName(e.target.value)}
+            />
+
             <div className="coordinate-row">
-              <input placeholder="Latitude" value={libraryLat} onChange={(e) => setLibraryLat(e.target.value)} />
-              <input placeholder="Longitude" value={libraryLon} onChange={(e) => setLibraryLon(e.target.value)} />
+              <input
+                placeholder="Latitude"
+                value={libraryLat}
+                onChange={(e) => setLibraryLat(e.target.value)}
+              />
+              <input
+                placeholder="Longitude"
+                value={libraryLon}
+                onChange={(e) => setLibraryLon(e.target.value)}
+              />
             </div>
-            <button className="secondary-button" onClick={createLibraryBuoy}>Guardar na biblioteca</button>
+
+            <button
+              className="secondary-button"
+              onClick={createLibraryBuoy}
+            >
+              Guardar na biblioteca
+            </button>
           </div>
         </section>
       </div>
 
       <section className="course-panel course-points-panel">
-        <h3>Pontos do percurso</h3>
+        <h3>Marcas do percurso</h3>
 
         {points.length === 0 ? (
-          <div className="empty-state">Ainda não existem pontos.</div>
+          <div className="empty-state">Ainda não existem bóias ou waypoints.</div>
         ) : (
           <div className="course-points-list">
             {points.map((point, index) => (
-              <div className="course-point-row" key={`${index}-${point.latitude}-${point.longitude}`}>
+              <div
+                className="course-point-row"
+                key={`${index}-${point.latitude}-${point.longitude}`}
+              >
                 <div className="point-order">{index + 1}</div>
 
                 <div className="point-info">
-                  <strong>{point.name || labelPointType(point.point_type)}</strong>
-                  <span>{labelPointType(point.point_type)} · {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</span>
+                  <strong>
+                    {point.name || labelPointType(point.point_type)}
+                  </strong>
+                  <span>
+                    {labelPointType(point.point_type)} ·{' '}
+                    {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                  </span>
                 </div>
 
                 <div className="point-actions">
-                  <button className="tiny-button" onClick={() => movePoint(index, -1)}>↑</button>
-                  <button className="tiny-button" onClick={() => movePoint(index, 1)}>↓</button>
+                  <button
+                    className="tiny-button"
+                    onClick={() => movePoint(index, -1)}
+                  >
+                    ↑
+                  </button>
+
+                  <button
+                    className="tiny-button"
+                    onClick={() => movePoint(index, 1)}
+                  >
+                    ↓
+                  </button>
+
                   <button
                     className="tiny-button danger"
-                    onClick={() => setPoints((current) => current.filter((_, i) => i !== index))}
+                    onClick={() =>
+                      setPoints((current) =>
+                        current.filter((_, i) => i !== index),
+                      )
+                    }
                   >
                     ×
                   </button>
@@ -1098,7 +1451,11 @@ function CourseEditor({ event }: { event: EventItem }) {
       {message && <div className="inline-message">{message}</div>}
 
       <div className="participants-actions">
-        <button className="save-button" onClick={saveCourse} disabled={saving}>
+        <button
+          className="save-button"
+          onClick={saveCourse}
+          disabled={saving}
+        >
           {saving ? 'A guardar...' : 'Guardar percurso'}
         </button>
       </div>
@@ -1147,6 +1504,41 @@ function boatColor(id: number) {
   return BOAT_COLORS[Math.abs(id) % BOAT_COLORS.length]
 }
 
+function makeLineEndpointIcon(
+  type: 'start' | 'finish',
+  endpoint: 'A' | 'B',
+) {
+  return L.divIcon({
+    className: 'line-endpoint-wrapper',
+    html: `
+      <div class="line-endpoint ${type}">
+        ${endpoint}
+      </div>
+    `,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  })
+}
+
+function lineMidpoint(line: CourseLine): [number, number] {
+  return [
+    (line.a_latitude + line.b_latitude) / 2,
+    (line.a_longitude + line.b_longitude) / 2,
+  ]
+}
+
+function normalizeCourseLine(line: any): CourseLine {
+  return {
+    id: line.id,
+    event_id: line.event_id,
+    line_type: line.line_type,
+    a_latitude: Number(line.a_latitude),
+    a_longitude: Number(line.a_longitude),
+    b_latitude: Number(line.b_latitude),
+    b_longitude: Number(line.b_longitude),
+  }
+}
+
 function normalizeCoursePoint(point: any): CoursePoint {
   return {
     id: point.id,
@@ -1160,15 +1552,11 @@ function normalizeCoursePoint(point: any): CoursePoint {
 }
 
 function labelPointType(type: CoursePoint['point_type']) {
-  if (type === 'start') return 'Partida'
-  if (type === 'finish') return 'Chegada'
   if (type === 'waypoint') return 'Waypoint'
   return 'Bóia'
 }
 
 function defaultPointName(type: CoursePoint['point_type'], index: number) {
-  if (type === 'start') return 'Partida'
-  if (type === 'finish') return 'Chegada'
   if (type === 'waypoint') return `Waypoint ${index}`
   return `Bóia ${index}`
 }
