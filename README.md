@@ -1,24 +1,18 @@
-# Sailing Horta Live 2 — v0.5.1 completa
+# Sailing Horta Live 2 — v0.6 Modo Regata
 
-Base consolidada a partir da v0.4.1.
+Mantém tudo o que existia na v0.5.1 e acrescenta um Modo Regata otimizado para telemóvel.
 
-Inclui:
-- Camadas no Live.
-- Windy.
-- Rasto 0,5 / 1 / 2 NM.
-- Coordenadas Boating em graus + minutos decimais.
-- Biblioteca de bóias.
-- Linhas de largada e chegada com 2 extremos.
-- Participantes por evento.
-- Estado automático Agendada / Em direto / Terminada.
-- Fuso Atlantic/Azores.
-- Botão "Terminar regata agora".
-- Regata em direto destacada no Live.
-- Seleção automática quando existe exatamente uma regata em direto.
-- Diagnóstico explícito de falhas do Admin mobile / Cloudflare Access.
-- Novo desenho SVG de veleiro, mais reconhecível, mantendo cor estável por barco.
+Nova rota:
+- /admin/regata
 
-IMPORTANTE:
-Lê o ficheiro CLOUDFLARE_ACCESS_IMPORTANTE.txt depois do deploy.
-A correção definitiva do Admin mobile requer uma única aplicação Access
-que cubra /admin e os subcaminhos.
+Modo Regata:
+- escolhe rapidamente a regata;
+- mostra estado Agendada / Em direto / Terminada;
+- mostra início e hora limite;
+- botão grande "Terminar regata agora";
+- acesso rápido a Participantes;
+- acesso rápido ao Percurso;
+- acesso rápido ao Live;
+- mantém o Admin completo disponível.
+
+O objetivo é permitir alterações essenciais no mar sem navegar pelo Admin completo.

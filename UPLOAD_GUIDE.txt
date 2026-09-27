@@ -1,26 +1,22 @@
-ATUALIZAÇÃO v0.5.1 COMPLETA
+ATUALIZAÇÃO v0.6 — MODO REGATA MOBILE
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.5.1-completa.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6-modo-regata.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
-DEPOIS DO DEPLOY:
-Lê CLOUDFLARE_ACCESS_IMPORTANTE.txt.
+TESTE NO TELEMÓVEL:
+1. Abre https://sailinghortalive.com/admin
+2. Toca "Modo Regata".
+3. Deves entrar em:
+   https://sailinghortalive.com/admin/regata
+4. Seleciona uma regata.
+5. Testa:
+   - Participantes
+   - Percurso
+   - Abrir Live
+6. Numa regata de teste, testa "Terminar regata agora".
 
-TESTES:
-1. Live público continua operacional.
-2. Confirmar novo desenho dos veleiros.
-3. Camadas / Windy / Rasto continuam disponíveis.
-4. Admin no computador:
-   - participantes;
-   - biblioteca de bóias;
-   - percurso.
-5. Ajustar Cloudflare Access para UMA aplicação sailinghortalive.com/admin*
-6. Testar novamente o Admin no telemóvel.
-7. Criar uma regata de teste em horário atual:
-   - deve ficar "Em direto".
-8. Editar > Geral > Terminar regata agora:
-   - deve ficar "Terminada";
-   - participantes, percurso e biblioteca mantêm-se.
+Cloudflare Access já deve estar com UMA aplicação:
+sailinghortalive.com/admin*

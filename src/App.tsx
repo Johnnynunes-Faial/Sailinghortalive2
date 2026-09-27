@@ -102,9 +102,17 @@ const BOAT_COLORS = [
 ]
 
 function App() {
-  return window.location.pathname.startsWith('/admin')
-    ? <AdminView />
-    : <PublicLiveView />
+  const path = window.location.pathname
+
+  if (path.startsWith('/admin/regata')) {
+    return <RaceModeView />
+  }
+
+  if (path.startsWith('/admin')) {
+    return <AdminView />
+  }
+
+  return <PublicLiveView />
 }
 
 function PublicLiveView() {
@@ -653,7 +661,15 @@ function AdminView() {
           <h1>Administração</h1>
         </div>
 
-        <a href="/" className="back-live-link">← Voltar ao Live</a>
+        <div className="admin-header-actions">
+          <a href="/admin/regata" className="race-mode-link">
+            Modo Regata
+          </a>
+
+          <a href="/" className="back-live-link">
+            ← Voltar ao Live
+          </a>
+        </div>
       </header>
 
       <div className="admin-content">
@@ -736,6 +752,356 @@ function AdminView() {
       )}
     </main>
   )
+}
+
+
+function RaceModeView() {
+  const [events, setEvents] = useState<EventItem[]>([])
+  const [selectedEventId, setSelectedEventId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [quickEditor, setQuickEditor] = useState<
+    'participants' | 'course' | null
+  >(null)
+
+  useEffect(() => {
+    loadEvents()
+  }, [])
+
+  async function loadEvents() {
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/events', {
+        cache: 'no-store',
+      })
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || 'Erro ao carregar regatas',
+        )
+      }
+
+      const loaded = (data.events ?? []) as EventItem[]
+      setEvents(loaded)
+
+      const liveEvents = loaded.filter(
+        (event) => event.status === 'live',
+      )
+
+      const scheduledEvents = loaded.filter(
+        (event) => event.status === 'scheduled',
+      )
+
+      if (!selectedEventId) {
+        if (liveEvents.length > 0) {
+          setSelectedEventId(liveEvents[0].id)
+        } else if (scheduledEvents.length > 0) {
+          setSelectedEventId(scheduledEvents[0].id)
+        } else if (loaded.length > 0) {
+          setSelectedEventId(loaded[0].id)
+        }
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar regatas',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectedEvent =
+    events.find(
+      (event) => event.id === selectedEventId,
+    ) ?? null
+
+  async function finishNow() {
+    if (!selectedEvent) return
+
+    const confirmed = window.confirm(
+      `Terminar agora a regata "${selectedEvent.name}"?\n\nA hora de fim será atualizada para este momento.`,
+    )
+
+    if (!confirmed) return
+
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(selectedEvent.id)}/finish`,
+        {
+          method: 'POST',
+        },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || 'Erro ao terminar regata',
+        )
+      }
+
+      setMessage('Regata terminada.')
+      await loadEvents()
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao terminar regata',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="race-mode-page">
+        <div className="race-mode-loading">
+          A carregar Modo Regata...
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="race-mode-page">
+      <header className="race-mode-header">
+        <div>
+          <div className="brand-small">
+            REGATA LIVE
+          </div>
+
+          <h1>Modo Regata</h1>
+        </div>
+
+        <div className="race-mode-header-actions">
+          <a href="/admin" className="secondary-link-button">
+            Admin completo
+          </a>
+
+          <a href="/" className="live-link-button">
+            Live
+          </a>
+        </div>
+      </header>
+
+      <div className="race-mode-content">
+        <section className="race-mode-card event-picker-card">
+          <label className="race-mode-label">
+            Regata
+          </label>
+
+          <select
+            className="race-mode-select"
+            value={selectedEventId}
+            onChange={(event) => {
+              setSelectedEventId(event.target.value)
+              setMessage(null)
+              setQuickEditor(null)
+            }}
+          >
+            {events.length === 0 && (
+              <option value="">
+                Sem regatas
+              </option>
+            )}
+
+            {events.map((event) => (
+              <option
+                key={event.id}
+                value={event.id}
+              >
+                {event.status === 'live'
+                  ? `● EM DIRETO — ${event.name}`
+                  : event.status === 'completed'
+                    ? `Terminada — ${event.name}`
+                    : `Agendada — ${event.name}`}
+              </option>
+            ))}
+          </select>
+        </section>
+
+        {selectedEvent ? (
+          <>
+            <section className="race-mode-card race-status-card">
+              <div className="race-status-top">
+                <div>
+                  <div className="race-mode-kicker">
+                    REGATA SELECIONADA
+                  </div>
+
+                  <h2>{selectedEvent.name}</h2>
+                </div>
+
+                <div
+                  className={`race-status-pill ${selectedEvent.status}`}
+                >
+                  {selectedEvent.status === 'live'
+                    ? 'EM DIRETO'
+                    : selectedEvent.status === 'completed'
+                      ? 'TERMINADA'
+                      : 'AGENDADA'}
+                </div>
+              </div>
+
+              <div className="race-time-grid">
+                <div className="race-time-box">
+                  <span>Início</span>
+                  <strong>
+                    {formatRaceDateTime(
+                      selectedEvent.start_time,
+                    )}
+                  </strong>
+                </div>
+
+                <div className="race-time-box">
+                  <span>Hora limite</span>
+                  <strong>
+                    {formatRaceDateTime(
+                      selectedEvent.end_time,
+                    )}
+                  </strong>
+                </div>
+              </div>
+
+              {selectedEvent.status !== 'completed' && (
+                <button
+                  type="button"
+                  className="finish-race-big-button"
+                  onClick={finishNow}
+                  disabled={saving}
+                >
+                  {saving
+                    ? 'A terminar...'
+                    : 'Terminar regata agora'}
+                </button>
+              )}
+            </section>
+
+            <section className="race-mode-actions-grid">
+              <button
+                type="button"
+                className={
+                  quickEditor === 'participants'
+                    ? 'race-action-card active'
+                    : 'race-action-card'
+                }
+                onClick={() =>
+                  setQuickEditor(
+                    quickEditor === 'participants'
+                      ? null
+                      : 'participants',
+                  )
+                }
+              >
+                <span className="race-action-icon">👥</span>
+                <strong>Participantes</strong>
+                <small>
+                  Adicionar ou retirar barcos
+                </small>
+              </button>
+
+              <button
+                type="button"
+                className={
+                  quickEditor === 'course'
+                    ? 'race-action-card active'
+                    : 'race-action-card'
+                }
+                onClick={() =>
+                  setQuickEditor(
+                    quickEditor === 'course'
+                      ? null
+                      : 'course',
+                  )
+                }
+              >
+                <span className="race-action-icon">⚓</span>
+                <strong>Percurso</strong>
+                <small>
+                  Bóias, waypoints e linhas
+                </small>
+              </button>
+
+              <a
+                href="/"
+                className="race-action-card race-action-link"
+              >
+                <span className="race-action-icon">🗺️</span>
+                <strong>Abrir Live</strong>
+                <small>
+                  Ver a regata no mapa
+                </small>
+              </a>
+            </section>
+
+            {message && (
+              <div className="race-mode-message">
+                {message}
+              </div>
+            )}
+
+            {quickEditor === 'participants' && (
+              <section className="race-mode-editor-card">
+                <div className="race-mode-section-title">
+                  Participantes
+                </div>
+
+                <ParticipantsEditor
+                  event={selectedEvent}
+                />
+              </section>
+            )}
+
+            {quickEditor === 'course' && (
+              <section className="race-mode-editor-card">
+                <div className="race-mode-section-title">
+                  Percurso
+                </div>
+
+                <CourseEditor
+                  event={selectedEvent}
+                />
+              </section>
+            )}
+          </>
+        ) : (
+          <section className="race-mode-card">
+            Não existem regatas para editar.
+          </section>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function formatRaceDateTime(
+  value: string | null,
+) {
+  if (!value) return '—'
+
+  const normalized = value.slice(0, 16)
+  const [datePart, timePart] =
+    normalized.split('T')
+
+  if (!datePart || !timePart) {
+    return value
+  }
+
+  const [year, month, day] =
+    datePart.split('-')
+
+  return `${day}/${month}/${year} ${timePart}`
 }
 
 function EventEditor({

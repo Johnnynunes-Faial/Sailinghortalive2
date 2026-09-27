@@ -1,0 +1,40 @@
+CORREÇÃO IMPORTANTE DO ADMIN NO TELEMÓVEL
+
+O código desta versão passa a mostrar um erro real se uma chamada administrativa
+for intercetada pelo Cloudflare Access.
+
+Mas para resolver definitivamente o problema do telemóvel, o Cloudflare Access
+deve usar UMA ÚNICA aplicação para o Admin e todas as rotas abaixo dele.
+
+Neste momento tens duas aplicações:
+- sailinghortalive.com/admin
+- sailinghortalive.com/admin/*
+
+Isto pode criar duas sessões/audiências Access diferentes no mesmo hostname.
+No computador pode funcionar por já existir sessão para ambas, enquanto no
+telemóvel o /admin abre mas os pedidos /admin/api/... não recebem a mesma sessão.
+
+CONFIGURAÇÃO RECOMENDADA
+
+No Cloudflare Zero Trust > Access > Applications:
+
+1. Cria UMA aplicação Self-hosted para:
+   sailinghortalive.com/admin*
+
+2. Usa a mesma política Allow que já tens para o teu email.
+
+3. Depois de confirmares que essa aplicação está ativa, elimina/desativa as
+   duas aplicações antigas:
+   sailinghortalive.com/admin
+   sailinghortalive.com/admin/*
+
+O wildcard "admin*" cobre o caminho /admin e também caminhos que começam por
+/admin, incluindo /admin/api/...
+
+Depois:
+- fecha o separador do Admin no telemóvel;
+- abre novamente https://sailinghortalive.com/admin;
+- autentica-te;
+- testa Participantes e Percurso.
+
+Não alteres os dados D1. Participantes, percursos e biblioteca não são apagados.
