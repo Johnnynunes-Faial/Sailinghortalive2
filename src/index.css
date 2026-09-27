@@ -12,7 +12,8 @@ body,
 }
 
 body {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #eef3f6;
   color: #102331;
 }
@@ -1327,4 +1328,76 @@ button {
     height: 45vh;
     min-height: 300px;
   }
+}
+
+
+/* v0.6.1 — correção de scroll no Modo Regata mobile */
+.race-mode-page {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.race-mode-content {
+  overflow: visible;
+}
+
+.race-mode-editor-card {
+  overflow: visible;
+}
+
+.race-mode-editor-card .devices-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.race-mode-editor-card .editor-body,
+.race-mode-editor-card .course-editor {
+  overflow: visible;
+}
+
+@media (max-width: 650px) {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .race-mode-page {
+    min-height: 100dvh;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  }
+
+  .race-mode-content {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .race-mode-editor-card {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .race-mode-editor-card .devices-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .race-mode-editor-card .participants-toolbar {
+    position: static;
+  }
+
+  .race-mode-editor-card .course-map {
+    height: 44vh;
+    min-height: 280px;
+    max-height: 420px;
+  }
+}
+
+/* O Live público continua a ocupar o ecrã inteiro sem scroll da página */
+.live-app {
+  overflow: hidden;
 }

@@ -1,22 +1,17 @@
-ATUALIZAÇÃO v0.6 — MODO REGATA MOBILE
+ATUALIZAÇÃO v0.6.1 — CORREÇÃO DE SCROLL MOBILE
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6-modo-regata.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.6.1-scroll-fix.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
 TESTE NO TELEMÓVEL:
-1. Abre https://sailinghortalive.com/admin
-2. Toca "Modo Regata".
-3. Deves entrar em:
-   https://sailinghortalive.com/admin/regata
-4. Seleciona uma regata.
-5. Testa:
-   - Participantes
-   - Percurso
-   - Abrir Live
-6. Numa regata de teste, testa "Terminar regata agora".
+- /admin/regata
+- abre Participantes
+- desliza para cima/baixo pela lista
+- volta ao topo
+- abre Percurso
+- desliza para cima/baixo até à biblioteca e às marcas
 
-Cloudflare Access já deve estar com UMA aplicação:
-sailinghortalive.com/admin*
+O Live público continua sem scroll de página.

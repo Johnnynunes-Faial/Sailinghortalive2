@@ -1,18 +1,10 @@
-# Sailing Horta Live 2 — v0.6 Modo Regata
+# Sailing Horta Live 2 — v0.6.1
 
-Mantém tudo o que existia na v0.5.1 e acrescenta um Modo Regata otimizado para telemóvel.
+Correção do Modo Regata em telemóvel:
 
-Nova rota:
-- /admin/regata
-
-Modo Regata:
-- escolhe rapidamente a regata;
-- mostra estado Agendada / Em direto / Terminada;
-- mostra início e hora limite;
-- botão grande "Terminar regata agora";
-- acesso rápido a Participantes;
-- acesso rápido ao Percurso;
-- acesso rápido ao Live;
-- mantém o Admin completo disponível.
-
-O objetivo é permitir alterações essenciais no mar sem navegar pelo Admin completo.
+- corrige o bloqueio de scroll ao abrir Participantes;
+- corrige o bloqueio de scroll ao abrir Percurso;
+- o conteúdo passa a crescer normalmente na página;
+- listas deixam de ficar presas dentro de contentores sem scroll;
+- mantém o Live público em ecrã inteiro;
+- mantém todas as funcionalidades da v0.6.
