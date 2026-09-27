@@ -1,10 +1,24 @@
-# Sailing Horta Live 2 — v0.4.1
+# Sailing Horta Live 2 — v0.5.1 completa
 
-Alteração de coordenadas:
-- Entrada no formato usado no Boating / navegação:
-  - Latitude: 38º33.457'N
-  - Longitude: 028º37.123'W
-- Também continua a aceitar coordenadas decimais por compatibilidade.
-- A biblioteca de bóias passa a mostrar as coordenadas em graus + minutos decimais.
-- A lista de marcas do percurso também mostra o mesmo formato.
-- Internamente, as coordenadas continuam guardadas em decimal no D1/Leaflet, evitando alterações à base de dados.
+Base consolidada a partir da v0.4.1.
+
+Inclui:
+- Camadas no Live.
+- Windy.
+- Rasto 0,5 / 1 / 2 NM.
+- Coordenadas Boating em graus + minutos decimais.
+- Biblioteca de bóias.
+- Linhas de largada e chegada com 2 extremos.
+- Participantes por evento.
+- Estado automático Agendada / Em direto / Terminada.
+- Fuso Atlantic/Azores.
+- Botão "Terminar regata agora".
+- Regata em direto destacada no Live.
+- Seleção automática quando existe exatamente uma regata em direto.
+- Diagnóstico explícito de falhas do Admin mobile / Cloudflare Access.
+- Novo desenho SVG de veleiro, mais reconhecível, mantendo cor estável por barco.
+
+IMPORTANTE:
+Lê o ficheiro CLOUDFLARE_ACCESS_IMPORTANTE.txt depois do deploy.
+A correção definitiva do Admin mobile requer uma única aplicação Access
+que cubra /admin e os subcaminhos.

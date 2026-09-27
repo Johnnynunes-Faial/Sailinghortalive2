@@ -161,24 +161,24 @@ button {
 
 .boat-marker {
   position: relative;
-  width: 130px;
-  height: 66px;
+  width: 132px;
+  height: 78px;
 }
 
 .boat-svg-wrap {
   position: absolute;
   left: 50%;
   top: 0;
-  width: 30px;
-  height: 46px;
-  margin-left: -15px;
-  transform-origin: 15px 23px;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35));
+  width: 42px;
+  height: 58px;
+  margin-left: -21px;
+  transform-origin: 21px 29px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
 }
 
 .boat-name {
   position: absolute;
-  top: 45px;
+  top: 56px;
   left: 50%;
   transform: translateX(-50%);
   max-width: 126px;
@@ -928,5 +928,62 @@ button {
     width: auto;
     height: auto;
     bottom: 8px;
+  }
+}
+
+
+.event-meta.status-live {
+  color: #16834a;
+  font-weight: 800;
+}
+
+.event-meta.status-completed {
+  color: #6f7f89;
+  font-weight: 700;
+}
+
+.event-meta.status-scheduled {
+  color: #1f6fb2;
+  font-weight: 700;
+}
+
+.finish-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #e7f4ec;
+  color: #176c3c;
+  font-weight: 800;
+}
+
+.admin-load-error {
+  margin: 18px;
+  padding: 18px;
+  border: 1px solid #efc9c5;
+  border-radius: 12px;
+  background: #fff7f6;
+  color: #7d261f;
+  line-height: 1.45;
+}
+
+.admin-load-error strong {
+  display: block;
+  margin-bottom: 7px;
+}
+
+.admin-load-error .access-help {
+  margin: 10px 0 14px;
+  color: #675e5c;
+  font-size: 12px;
+}
+
+@media (max-width: 650px) {
+  .finish-button {
+    width: 100%;
+  }
+
+  .admin-load-error {
+    margin: 12px;
   }
 }

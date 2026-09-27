@@ -1,20 +1,26 @@
-ATUALIZAÇÃO v0.4.1 — FORMATO DE COORDENADAS BOATING
+ATUALIZAÇÃO v0.5.1 COMPLETA
 
 1. Descompacta o ZIP.
 2. GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.4.1-coordenadas.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.5.1-completa.
 4. Commit changes para main.
 5. Aguarda o deploy Cloudflare.
 
-TESTE:
-- Admin > Editar regata > Percurso.
-- Na biblioteca cria uma bóia com:
-  Latitude: 38º33.457'N
-  Longitude: 028º37.123'W
-- Guarda na biblioteca.
-- A coordenada deve aparecer no mesmo formato.
-- "Copiar para percurso" continua a funcionar normalmente.
+DEPOIS DO DEPLOY:
+Lê CLOUDFLARE_ACCESS_IMPORTANTE.txt.
 
-Também são aceites coordenadas decimais antigas, por exemplo:
-38.557617
--28.618717
+TESTES:
+1. Live público continua operacional.
+2. Confirmar novo desenho dos veleiros.
+3. Camadas / Windy / Rasto continuam disponíveis.
+4. Admin no computador:
+   - participantes;
+   - biblioteca de bóias;
+   - percurso.
+5. Ajustar Cloudflare Access para UMA aplicação sailinghortalive.com/admin*
+6. Testar novamente o Admin no telemóvel.
+7. Criar uma regata de teste em horário atual:
+   - deve ficar "Em direto".
+8. Editar > Geral > Terminar regata agora:
+   - deve ficar "Terminada";
+   - participantes, percurso e biblioteca mantêm-se.

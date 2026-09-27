@@ -215,6 +215,55 @@ async function getTrackForDevice(
   return selected.reverse()
 }
 
+
+function azoresLocalDateTime(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Atlantic/Azores',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  )
+
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`
+}
+
+function effectiveEventStatus(event: {
+  status?: string
+  start_time?: string | null
+  end_time?: string | null
+}) {
+  if (event.status === 'completed') {
+    return 'completed'
+  }
+
+  const now = azoresLocalDateTime()
+  const start = event.start_time?.slice(0, 16) ?? null
+  const end = event.end_time?.slice(0, 16) ?? null
+
+  if (start && now < start) {
+    return 'scheduled'
+  }
+
+  if (start && now >= start && (!end || now < end)) {
+    return 'live'
+  }
+
+  if (end && now >= end) {
+    return 'completed'
+  }
+
+  return event.status || 'scheduled'
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -231,7 +280,12 @@ export default {
           ORDER BY start_time ASC, created_at ASC
         `).all()
 
-        return json({ ok: true, events: result.results ?? [] })
+        const events = (result.results ?? []).map((event: any) => ({
+          ...event,
+          status: effectiveEventStatus(event),
+        }))
+
+        return json({ ok: true, events })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar regatas' }, 500)
       }
@@ -390,6 +444,59 @@ export default {
     }
 
     const adminEventMatch = url.pathname.match(/^\/admin\/api\/events\/([^/]+)$/)
+
+    const finishEventMatch = url.pathname.match(
+      /^\/admin\/api\/events\/([^/]+)\/finish$/,
+    )
+
+    if (finishEventMatch && request.method === 'POST') {
+      try {
+        const eventId = finishEventMatch[1]
+        const finishedAt = azoresLocalDateTime()
+
+        const existingEvent = await env.DB.prepare(`
+          SELECT id
+          FROM events
+          WHERE id = ?
+        `).bind(eventId).first()
+
+        if (!existingEvent) {
+          return json(
+            { ok: false, error: 'Regata não encontrada' },
+            404,
+          )
+        }
+
+        await env.DB.prepare(`
+          UPDATE events
+          SET
+            status = 'completed',
+            end_time = ?,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(
+          finishedAt,
+          eventId,
+        ).run()
+
+        return json({
+          ok: true,
+          status: 'completed',
+          endTime: finishedAt,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao terminar regata',
+          },
+          500,
+        )
+      }
+    }
 
     if (adminEventMatch && request.method === 'PUT') {
       try {

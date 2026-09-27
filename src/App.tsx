@@ -154,7 +154,22 @@ function PublicLiveView() {
   useEffect(() => {
     fetch('/api/events', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((data) => setEvents(data.events ?? []))
+      .then((data) => {
+        const loadedEvents = data.events ?? []
+        setEvents(loadedEvents)
+
+        const liveEvents = loadedEvents.filter(
+          (event: EventItem) => event.status === 'live',
+        )
+
+        if (
+          selectedEventId === 'general' &&
+          liveEvents.length === 1
+        ) {
+          setSelectedEventId(liveEvents[0].id)
+          lastFitKeyRef.current = ''
+        }
+      })
       .catch(() => setEvents([]))
   }, [])
 
@@ -455,7 +470,9 @@ function PublicLiveView() {
             <option value="general">Modo Geral</option>
             {events.map((event) => (
               <option key={event.id} value={event.id}>
-                {event.name}
+                {event.status === 'live'
+                  ? `● EM DIRETO — ${event.name}`
+                  : event.name}
               </option>
             ))}
           </select>
@@ -601,9 +618,8 @@ function AdminView() {
     setError(null)
 
     try {
-      const response = await fetch('/admin/api/events', {
+      const response = await adminFetch('/admin/api/events', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: eventName.trim(),
@@ -612,9 +628,11 @@ function AdminView() {
         }),
       })
 
-      const data = await response.json()
+      const data = await readJsonResponse(response)
 
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Erro ao criar regata')
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Erro ao criar regata')
+      }
 
       setEventName('')
       setStartTime('')
@@ -687,7 +705,13 @@ function AdminView() {
               <div key={event.id} className="event-row">
                 <div>
                   <strong>{event.name}</strong>
-                  <div className="event-meta">{event.status}</div>
+                  <div className={`event-meta status-${event.status}`}>
+                    {event.status === 'live'
+                      ? 'Em direto'
+                      : event.status === 'completed'
+                        ? 'Terminada'
+                        : 'Agendada'}
+                  </div>
                 </div>
 
                 <button
@@ -781,24 +805,68 @@ function GeneralEditor({
     setError(null)
 
     try {
-      const response = await fetch(`/admin/api/events/${encodeURIComponent(event.id)}`, {
-        method: 'PUT',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name,
           startTime: startTime || null,
           endTime: endTime || null,
         }),
-      })
+        },
+      )
 
-      const data = await response.json()
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Erro ao guardar')
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Erro ao guardar')
+      }
 
       await onChanged()
       onClose()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erro ao guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function finishNow() {
+    const confirmed = window.confirm(
+      `Terminar agora a regata "${event.name}"?\n\nA hora de fim será atualizada para este momento. Participantes, percurso e bóias não serão apagados.`,
+    )
+
+    if (!confirmed) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}/finish`,
+        {
+          method: 'POST',
+        },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || 'Erro ao terminar regata',
+        )
+      }
+
+      await onChanged()
+      onClose()
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao terminar regata',
+      )
     } finally {
       setSaving(false)
     }
@@ -818,13 +886,18 @@ function GeneralEditor({
     setError(null)
 
     try {
-      const response = await fetch(`/admin/api/events/${encodeURIComponent(event.id)}`, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      })
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}`,
+        {
+          method: 'DELETE',
+        },
+      )
 
-      const data = await response.json()
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Erro ao eliminar')
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Erro ao eliminar')
+      }
 
       await onChanged()
       onClose()
@@ -855,8 +928,31 @@ function GeneralEditor({
       {error && <div className="form-error">{error}</div>}
 
       <div className="general-actions">
-        <button className="danger-button" onClick={remove} disabled={saving}>Eliminar regata</button>
-        <button className="save-button" onClick={save} disabled={saving}>{saving ? 'A guardar...' : 'Guardar alterações'}</button>
+        <button
+          className="danger-button"
+          onClick={remove}
+          disabled={saving}
+        >
+          Eliminar regata
+        </button>
+
+        {event.status !== 'completed' && (
+          <button
+            className="finish-button"
+            onClick={finishNow}
+            disabled={saving}
+          >
+            Terminar regata agora
+          </button>
+        )}
+
+        <button
+          className="save-button"
+          onClick={save}
+          disabled={saving}
+        >
+          {saving ? 'A guardar...' : 'Guardar alterações'}
+        </button>
       </div>
     </div>
   )
@@ -868,6 +964,7 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -875,29 +972,55 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
 
   async function load() {
     setLoading(true)
+    setLoadError(null)
+    setMessage(null)
 
     try {
       const [devicesResponse, participantsResponse] = await Promise.all([
-        fetch('/admin/api/devices', {
-          credentials: 'same-origin',
+        adminFetch('/admin/api/devices', {
           cache: 'no-store',
         }),
-        fetch(`/admin/api/events/${encodeURIComponent(event.id)}/participants`, {
-          credentials: 'same-origin',
-          cache: 'no-store',
-        }),
+        adminFetch(
+          `/admin/api/events/${encodeURIComponent(event.id)}/participants`,
+          {
+            cache: 'no-store',
+          },
+        ),
       ])
 
-      const devicesData = await devicesResponse.json()
-      const participantsData = await participantsResponse.json()
+      const devicesData = await readJsonResponse(devicesResponse)
+      const participantsData = await readJsonResponse(participantsResponse)
+
+      if (!devicesResponse.ok || !devicesData.ok) {
+        throw new Error(
+          devicesData.error ||
+            `Não foi possível carregar os barcos (${devicesResponse.status}).`,
+        )
+      }
+
+      if (!participantsResponse.ok || !participantsData.ok) {
+        throw new Error(
+          participantsData.error ||
+            `Não foi possível carregar os participantes (${participantsResponse.status}).`,
+        )
+      }
 
       setDevices(devicesData.devices ?? [])
       setSelectedIds(
         new Set(
           (participantsData.participants ?? []).map(
-            (participant: any) => Number(participant.traccar_device_id),
+            (participant: any) =>
+              Number(participant.traccar_device_id),
           ),
         ),
+      )
+    } catch (error) {
+      setDevices([])
+      setSelectedIds(new Set())
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar participantes.',
       )
     } finally {
       setLoading(false)
@@ -916,67 +1039,135 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
           boatName: device.name,
         }))
 
-      const response = await fetch(
+      const response = await adminFetch(
         `/admin/api/events/${encodeURIComponent(event.id)}/participants`,
         {
           method: 'PUT',
-          credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ participants }),
         },
       )
 
-      const data = await response.json()
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Erro')
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || 'Erro ao guardar participantes',
+        )
+      }
 
       setMessage('Participantes guardados.')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro ao guardar')
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao guardar participantes',
+      )
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <div className="modal-message">A carregar barcos...</div>
+  if (loading) {
+    return <div className="modal-message">A carregar barcos...</div>
+  }
+
+  if (loadError) {
+    return (
+      <div className="admin-load-error">
+        <strong>Não foi possível carregar os participantes.</strong>
+        <div>{loadError}</div>
+
+        <div className="access-help">
+          Se estiveres no telemóvel, isto pode indicar que o Cloudflare Access
+          está a proteger /admin e /admin/* como aplicações diferentes.
+        </div>
+
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={load}
+        >
+          Tentar novamente
+        </button>
+      </div>
+    )
+  }
 
   return (
     <>
       <div className="participants-toolbar">
         <span>{selectedIds.size} selecionados</span>
-        <button className="secondary-button" onClick={() => setSelectedIds(new Set(devices.map((d) => d.id)))}>Selecionar todos</button>
-        <button className="secondary-button" onClick={() => setSelectedIds(new Set())}>Limpar</button>
+
+        <button
+          className="secondary-button"
+          onClick={() =>
+            setSelectedIds(
+              new Set(devices.map((device) => device.id)),
+            )
+          }
+        >
+          Selecionar todos
+        </button>
+
+        <button
+          className="secondary-button"
+          onClick={() => setSelectedIds(new Set())}
+        >
+          Limpar
+        </button>
       </div>
 
       <div className="devices-list">
-        {devices.map((device) => (
-          <label
-            key={device.id}
-            className={selectedIds.has(device.id) ? 'device-row selected' : 'device-row'}
-          >
-            <input
-              type="checkbox"
-              checked={selectedIds.has(device.id)}
-              onChange={() => {
-                setSelectedIds((current) => {
-                  const next = new Set(current)
-                  if (next.has(device.id)) next.delete(device.id)
-                  else next.add(device.id)
-                  return next
-                })
-              }}
-            />
-            <div className="device-info">
-              <strong>{device.name}</strong>
-              <span>ID Traccar: {device.id}</span>
-            </div>
-          </label>
-        ))}
+        {devices.length === 0 ? (
+          <div className="empty-state">
+            Nenhum barco recebido do Traccar.
+          </div>
+        ) : (
+          devices.map((device) => (
+            <label
+              key={device.id}
+              className={
+                selectedIds.has(device.id)
+                  ? 'device-row selected'
+                  : 'device-row'
+              }
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.has(device.id)}
+                onChange={() => {
+                  setSelectedIds((current) => {
+                    const next = new Set(current)
+
+                    if (next.has(device.id)) {
+                      next.delete(device.id)
+                    } else {
+                      next.add(device.id)
+                    }
+
+                    return next
+                  })
+                }}
+              />
+
+              <div className="device-info">
+                <strong>{device.name}</strong>
+                <span>ID Traccar: {device.id}</span>
+              </div>
+            </label>
+          ))
+        )}
       </div>
 
       {message && <div className="inline-message">{message}</div>}
 
       <div className="participants-actions">
-        <button className="save-button" onClick={save} disabled={saving}>
+        <button
+          className="save-button"
+          onClick={save}
+          disabled={saving}
+        >
           {saving ? 'A guardar...' : 'Guardar participantes'}
         </button>
       </div>
@@ -1010,29 +1201,68 @@ function CourseEditor({ event }: { event: EventItem }) {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/admin/api/events/${encodeURIComponent(event.id)}/course`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      }).then((r) => r.json()),
+      adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}/course`,
+        { cache: 'no-store' },
+      ),
+      adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}/course-lines`,
+        { cache: 'no-store' },
+      ),
+      adminFetch(
+        '/admin/api/buoy-library',
+        { cache: 'no-store' },
+      ),
+    ])
+      .then(async ([courseResponse, linesResponse, libraryResponse]) => {
+        const courseData = await readJsonResponse(courseResponse)
+        const linesData = await readJsonResponse(linesResponse)
+        const libraryData = await readJsonResponse(libraryResponse)
 
-      fetch(`/admin/api/events/${encodeURIComponent(event.id)}/course-lines`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      }).then((r) => r.json()),
+        if (!courseResponse.ok || !courseData.ok) {
+          throw new Error(
+            courseData.error ||
+              `Erro ao carregar percurso (${courseResponse.status}).`,
+          )
+        }
 
-      fetch('/admin/api/buoy-library', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      }).then((r) => r.json()),
-    ]).then(([courseData, linesData, libraryData]) => {
-      setPoints(
-        (courseData.points ?? [])
-          .filter((point: any) => point.point_type === 'buoy' || point.point_type === 'waypoint')
-          .map(normalizeCoursePoint),
-      )
-      setLines((linesData.lines ?? []).map(normalizeCourseLine))
-      setLibrary(libraryData.buoys ?? [])
-    })
+        if (!linesResponse.ok || !linesData.ok) {
+          throw new Error(
+            linesData.error ||
+              `Erro ao carregar linhas (${linesResponse.status}).`,
+          )
+        }
+
+        if (!libraryResponse.ok || !libraryData.ok) {
+          throw new Error(
+            libraryData.error ||
+              `Erro ao carregar biblioteca de bóias (${libraryResponse.status}).`,
+          )
+        }
+
+        setPoints(
+          (courseData.points ?? [])
+            .filter(
+              (point: any) =>
+                point.point_type === 'buoy' ||
+                point.point_type === 'waypoint',
+            )
+            .map(normalizeCoursePoint),
+        )
+
+        setLines(
+          (linesData.lines ?? []).map(normalizeCourseLine),
+        )
+
+        setLibrary(libraryData.buoys ?? [])
+      })
+      .catch((error) => {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : 'Erro ao carregar percurso.',
+        )
+      })
   }, [event.id])
 
   useEffect(() => {
@@ -1304,28 +1534,26 @@ function CourseEditor({ event }: { event: EventItem }) {
       }))
 
       const [pointsResponse, linesResponse] = await Promise.all([
-        fetch(
+        adminFetch(
           `/admin/api/events/${encodeURIComponent(event.id)}/course`,
           {
             method: 'PUT',
-            credentials: 'same-origin',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ points: pointPayload }),
           },
         ),
-        fetch(
+        adminFetch(
           `/admin/api/events/${encodeURIComponent(event.id)}/course-lines`,
           {
             method: 'PUT',
-            credentials: 'same-origin',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ lines: linePayload }),
           },
         ),
       ])
 
-      const pointsData = await pointsResponse.json()
-      const linesData = await linesResponse.json()
+      const pointsData = await readJsonResponse(pointsResponse)
+      const linesData = await readJsonResponse(linesResponse)
 
       if (!pointsResponse.ok || !pointsData.ok) {
         throw new Error(pointsData.error || 'Erro ao guardar percurso')
@@ -1358,9 +1586,8 @@ function CourseEditor({ event }: { event: EventItem }) {
       return
     }
 
-    const response = await fetch('/admin/api/buoy-library', {
+    const response = await adminFetch('/admin/api/buoy-library', {
       method: 'POST',
-      credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         name: libraryName.trim(),
@@ -1369,17 +1596,19 @@ function CourseEditor({ event }: { event: EventItem }) {
       }),
     })
 
-    const data = await response.json()
+    const data = await readJsonResponse(response)
 
     if (!response.ok || !data.ok) {
       setMessage(data.error || 'Erro ao criar bóia na biblioteca')
       return
     }
 
-    const refreshed = await fetch('/admin/api/buoy-library', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    }).then((r) => r.json())
+    const refreshedResponse = await adminFetch(
+      '/admin/api/buoy-library',
+      { cache: 'no-store' },
+    )
+
+    const refreshed = await readJsonResponse(refreshedResponse)
 
     setLibrary(refreshed.buoys ?? [])
     setLibraryName('')
@@ -1391,10 +1620,19 @@ function CourseEditor({ event }: { event: EventItem }) {
   async function deleteLibraryBuoy(id: number) {
     if (!window.confirm('Eliminar esta bóia da biblioteca? Percursos já criados não serão alterados.')) return
 
-    await fetch(`/admin/api/buoy-library/${id}`, {
-      method: 'DELETE',
-      credentials: 'same-origin',
-    })
+    const response = await adminFetch(
+      `/admin/api/buoy-library/${id}`,
+      {
+        method: 'DELETE',
+      },
+    )
+
+    const data = await readJsonResponse(response)
+
+    if (!response.ok || !data.ok) {
+      setMessage(data.error || 'Erro ao eliminar bóia da biblioteca.')
+      return
+    }
 
     setLibrary((current) => current.filter((b) => b.id !== id))
   }
@@ -1669,19 +1907,81 @@ function makeBoatIcon(
     className: 'boat-marker-wrapper',
     html: `
       <div class="boat-marker">
-        <div class="boat-svg-wrap" style="transform: rotate(${course || 0}deg)">
-          <svg width="30" height="46" viewBox="0 0 30 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M15 1 L24 34 L15 44 L6 34 Z" fill="${color}" stroke="white" stroke-width="2"/>
-            <path d="M15 5 L15 39" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
-            <path d="M15 8 L22 31 L15 27 Z" fill="rgba(255,255,255,.42)"/>
-            <path d="M15 8 L8 31 L15 27 Z" fill="rgba(255,255,255,.18)"/>
+        <div
+          class="boat-svg-wrap"
+          style="transform: rotate(${course || 0}deg)"
+        >
+          <svg
+            width="42"
+            height="58"
+            viewBox="0 0 42 58"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <!-- casco visto de cima -->
+            <path
+              d="M21 3
+                 C16 10 14 19 13 31
+                 L14 46
+                 Q14.5 52 21 55
+                 Q27.5 52 28 46
+                 L29 31
+                 C28 19 26 10 21 3 Z"
+              fill="${color}"
+              stroke="white"
+              stroke-width="2.2"
+              stroke-linejoin="round"
+            />
+
+            <!-- mastro -->
+            <line
+              x1="21"
+              y1="8"
+              x2="21"
+              y2="47"
+              stroke="#ffffff"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            />
+
+            <!-- vela principal -->
+            <path
+              d="M19.5 11 L8 36 L19.5 32 Z"
+              fill="${color}"
+              stroke="white"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+
+            <!-- genoa / vela de proa -->
+            <path
+              d="M22.5 14 L34 33 L22.5 30 Z"
+              fill="${color}"
+              fill-opacity="0.82"
+              stroke="white"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+
+            <!-- cockpit -->
+            <rect
+              x="17.5"
+              y="39"
+              width="7"
+              height="8"
+              rx="2.5"
+              fill="rgba(255,255,255,.75)"
+            />
           </svg>
         </div>
-        ${showName ? `<div class="boat-name">${escapeHtml(name)}</div>` : ''}
+
+        ${showName
+          ? `<div class="boat-name">${escapeHtml(name)}</div>`
+          : ''}
       </div>
     `,
-    iconSize: [130, 66],
-    iconAnchor: [65, 24],
+    iconSize: [132, 78],
+    iconAnchor: [66, 28],
   })
 }
 
@@ -1827,6 +2127,56 @@ function formatBoatingCoordinate(
   const minutesText = minutes.toFixed(3).padStart(6, '0')
 
   return `${degreesText}º${minutesText}'${hemisphere}`
+}
+
+async function adminFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+) {
+  const response = await fetch(input, {
+    ...init,
+    credentials: 'include',
+    cache: init.cache ?? 'no-store',
+    headers: {
+      Accept: 'application/json',
+      ...(init.headers ?? {}),
+    },
+  })
+
+  const contentType =
+    response.headers.get('content-type') ?? ''
+
+  if (
+    response.redirected ||
+    contentType.includes('text/html')
+  ) {
+    const responseUrl = response.url || ''
+
+    if (
+      responseUrl.includes('/cdn-cgi/access') ||
+      contentType.includes('text/html')
+    ) {
+      throw new Error(
+        'A autenticação do Cloudflare Access não foi aceite para esta operação. A configuração do Access deve proteger /admin e /admin/* na mesma aplicação.',
+      )
+    }
+  }
+
+  return response
+}
+
+async function readJsonResponse(
+  response: Response,
+): Promise<any> {
+  const text = await response.text()
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(
+      `O servidor devolveu uma resposta inesperada (${response.status}).`,
+    )
+  }
 }
 
 function toLocalInput(value: string | null) {
