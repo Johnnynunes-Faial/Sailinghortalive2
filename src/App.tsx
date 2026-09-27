@@ -45,6 +45,17 @@ type EventsResponse = {
 }
 
 function App() {
+  const isAdmin =
+    window.location.pathname.startsWith('/admin')
+
+  if (isAdmin) {
+    return <AdminView />
+  }
+
+  return <PublicLiveView />
+}
+
+function PublicLiveView() {
   const mapElementRef =
     useRef<HTMLDivElement | null>(null)
 
@@ -62,39 +73,16 @@ function App() {
   const [boats, setBoats] =
     useState<Boat[]>([])
 
-  const [connected, setConnected] =
-    useState(false)
-
-  const [lastUpdate, setLastUpdate] =
-    useState<string | null>(null)
-
   const [events, setEvents] =
     useState<EventItem[]>([])
 
   const [
     selectedEventId,
     setSelectedEventId,
-  ] = useState<string>('general')
+  ] = useState('general')
 
-  const [
-    showNewEvent,
-    setShowNewEvent,
-  ] = useState(false)
-
-  const [eventName, setEventName] =
-    useState('')
-
-  const [startTime, setStartTime] =
-    useState('')
-
-  const [endTime, setEndTime] =
-    useState('')
-
-  const [creatingEvent, setCreatingEvent] =
+  const [connected, setConnected] =
     useState(false)
-
-  const [eventError, setEventError] =
-    useState<string | null>(null)
 
   useEffect(() => {
     if (
@@ -106,9 +94,6 @@ function App() {
 
     const map = L.map(
       mapElementRef.current,
-      {
-        zoomControl: true,
-      },
     ).setView(
       [38.535, -28.63],
       11,
@@ -132,6 +117,10 @@ function App() {
   }, [])
 
   useEffect(() => {
+    loadEvents()
+  }, [])
+
+  useEffect(() => {
     let active = true
 
     async function loadLive() {
@@ -141,31 +130,14 @@ function App() {
             cache: 'no-store',
           })
 
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}`,
-          )
-        }
-
         const data =
           (await response.json()) as LiveResponse
 
         if (!active) return
 
         setBoats(data.boats ?? [])
-        setConnected(
-          data.ok === true,
-        )
-
-        setLastUpdate(
-          data.updatedAt ?? null,
-        )
-      } catch (error) {
-        console.error(
-          'Erro Live:',
-          error,
-        )
-
+        setConnected(data.ok === true)
+      } catch {
         if (active) {
           setConnected(false)
         }
@@ -182,15 +154,8 @@ function App() {
 
     return () => {
       active = false
-
-      window.clearInterval(
-        timer,
-      )
+      window.clearInterval(timer)
     }
-  }, [])
-
-  useEffect(() => {
-    loadEvents()
   }, [])
 
   async function loadEvents() {
@@ -200,23 +165,12 @@ function App() {
           cache: 'no-store',
         })
 
-      if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}`,
-        )
-      }
-
       const data =
         (await response.json()) as EventsResponse
 
-      setEvents(
-        data.events ?? [],
-      )
-    } catch (error) {
-      console.error(
-        'Erro a carregar regatas:',
-        error,
-      )
+      setEvents(data.events ?? [])
+    } catch {
+      setEvents([])
     }
   }
 
@@ -250,10 +204,7 @@ function App() {
     ) {
       if (!activeIds.has(id)) {
         marker.removeFrom(map)
-
-        markersRef.current.delete(
-          id,
-        )
+        markersRef.current.delete(id)
       }
     }
 
@@ -271,64 +222,43 @@ function App() {
 
           html: `
             <div class="boat-marker">
-
               <div
                 class="boat-arrow"
                 style="
                   transform:
-                  rotate(
-                    ${position.course || 0}deg
-                  )
+                  rotate(${position.course || 0}deg)
                 "
               >
                 ▲
               </div>
 
               <div class="boat-name">
-                ${escapeHtml(
-                  boat.name,
-                )}
+                ${escapeHtml(boat.name)}
               </div>
-
             </div>
           `,
 
-          iconSize: [
-            120,
-            50,
-          ],
-
-          iconAnchor: [
-            60,
-            18,
-          ],
+          iconSize: [120, 50],
+          iconAnchor: [60, 18],
         })
+
+      const popup = `
+        <strong>
+          ${escapeHtml(boat.name)}
+        </strong>
+        <br>
+        Velocidade:
+        ${Number(position.speed ?? 0).toFixed(1)}
+        kn
+        <br>
+        Rumo:
+        ${Math.round(position.course ?? 0)}°
+      `
 
       const existingMarker =
         markersRef.current.get(
           boat.id,
         )
-
-      const popup = `
-        <strong>
-          ${escapeHtml(
-            boat.name,
-          )}
-        </strong>
-        <br>
-
-        Velocidade:
-        ${Number(
-          position.speed ?? 0,
-        ).toFixed(1)}
-        kn
-        <br>
-
-        Rumo:
-        ${Math.round(
-          position.course ?? 0,
-        )}°
-      `
 
       if (existingMarker) {
         existingMarker.setLatLng(
@@ -338,9 +268,7 @@ function App() {
           ],
         )
 
-        existingMarker.setIcon(
-          icon,
-        )
+        existingMarker.setIcon(icon)
 
         existingMarker
           .setPopupContent(
@@ -353,14 +281,10 @@ function App() {
               position.latitude,
               position.longitude,
             ],
-            {
-              icon,
-            },
+            { icon },
           )
             .addTo(map)
-            .bindPopup(
-              popup,
-            )
+            .bindPopup(popup)
 
         markersRef.current.set(
           boat.id,
@@ -374,6 +298,7 @@ function App() {
       positionedBoats.length > 0
     ) {
       fitBoats(
+        map,
         positionedBoats,
       )
 
@@ -382,151 +307,16 @@ function App() {
     }
   }, [boats])
 
-  function fitBoats(
-    list: Boat[],
-  ) {
-    const map =
-      mapRef.current
+  function showAllBoats() {
+    const map = mapRef.current
 
     if (!map) return
 
-    const boatsWithPosition =
-      list.filter(
-        (boat) => boat.position,
-      )
-
-    if (
-      boatsWithPosition.length === 0
-    ) {
-      return
-    }
-
-    const bounds =
-      L.latLngBounds(
-        boatsWithPosition.map(
-          (boat) => [
-            boat.position!.latitude,
-            boat.position!.longitude,
-          ],
-        ),
-      )
-
-    if (
-      boatsWithPosition.length === 1
-    ) {
-      map.setView(
-        bounds.getCenter(),
-        13,
-      )
-    } else {
-      map.fitBounds(
-        bounds,
-        {
-          padding: [
-            50,
-            50,
-          ],
-
-          maxZoom: 13,
-        },
-      )
-    }
-  }
-
-  function showAllBoats() {
-    fitBoats(boats)
-  }
-
-  async function createEvent(
-    event:
-      React.FormEvent,
-  ) {
-    event.preventDefault()
-
-    if (!eventName.trim()) {
-      setEventError(
-        'Indica o nome da regata.',
-      )
-
-      return
-    }
-
-    setCreatingEvent(true)
-    setEventError(null)
-
-    try {
-      const response =
-        await fetch(
-          '/api/events',
-          {
-            method: 'POST',
-
-            headers: {
-              'content-type':
-                'application/json',
-            },
-
-            body: JSON.stringify({
-              name:
-                eventName.trim(),
-
-              startTime:
-                startTime ||
-                null,
-
-              endTime:
-                endTime ||
-                null,
-            }),
-          },
-        )
-
-      const data =
-        await response.json() as {
-          ok: boolean
-          id?: string
-          error?: string
-        }
-
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
-        throw new Error(
-          data.error ||
-            'Erro ao criar regata',
-        )
-      }
-
-      await loadEvents()
-
-      if (data.id) {
-        setSelectedEventId(
-          data.id,
-        )
-      }
-
-      setEventName('')
-      setStartTime('')
-      setEndTime('')
-      setShowNewEvent(false)
-    } catch (error) {
-      setEventError(
-        error instanceof Error
-          ? error.message
-          : 'Erro ao criar regata',
-      )
-    } finally {
-      setCreatingEvent(false)
-    }
-  }
-
-  const selectedEvent =
-    events.find(
-      (event) =>
-        event.id ===
-        selectedEventId,
+    fitBoats(
+      map,
+      boats,
     )
+  }
 
   return (
     <main className="live-app">
@@ -558,6 +348,7 @@ function App() {
               )
             }
           >
+
             <option value="general">
               Modo Geral
             </option>
@@ -565,31 +356,15 @@ function App() {
             {events.map(
               (event) => (
                 <option
-                  key={
-                    event.id
-                  }
-                  value={
-                    event.id
-                  }
+                  key={event.id}
+                  value={event.id}
                 >
                   {event.name}
                 </option>
               ),
             )}
+
           </select>
-
-          <button
-            className="new-event-button"
-            onClick={() => {
-              setEventError(null)
-
-              setShowNewEvent(
-                true,
-              )
-            }}
-          >
-            + Nova regata
-          </button>
 
         </div>
 
@@ -613,9 +388,7 @@ function App() {
 
           <button
             className="show-all-button"
-            onClick={
-              showAllBoats
-            }
+            onClick={showAllBoats}
           >
             Mostrar todos
           </button>
@@ -627,210 +400,342 @@ function App() {
       <section className="map-container">
 
         <div
-          ref={
-            mapElementRef
-          }
+          ref={mapElementRef}
           className="map"
         />
 
-        <div className="current-mode">
-
-          {selectedEvent
-            ? selectedEvent.name
-            : 'Modo Geral'}
-
-        </div>
-
         <div className="boat-counter">
-
           {
             boats.filter(
-              (boat) =>
-                boat.position,
+              (boat) => boat.position,
             ).length
           }
-
           {' '}
           barcos ativos
-
         </div>
-
-        {lastUpdate && (
-          <div className="last-update">
-            Atualização Live
-          </div>
-        )}
 
       </section>
 
-      {showNewEvent && (
+    </main>
+  )
+}
 
-        <div className="modal-backdrop">
+function AdminView() {
+  const [events, setEvents] =
+    useState<EventItem[]>([])
 
-          <div className="event-modal">
+  const [eventName, setEventName] =
+    useState('')
 
-            <div className="modal-header">
+  const [startTime, setStartTime] =
+    useState('')
 
-              <div>
+  const [endTime, setEndTime] =
+    useState('')
 
-                <div className="modal-small">
-                  REGATA
-                </div>
+  const [saving, setSaving] =
+    useState(false)
 
-                <h2>
-                  Nova regata
-                </h2>
+  const [error, setError] =
+    useState<string | null>(null)
 
-              </div>
+  useEffect(() => {
+    loadEvents()
+  }, [])
 
-              <button
-                className="modal-close"
-                onClick={() =>
-                  setShowNewEvent(
-                    false,
-                  )
-                }
-              >
-                ×
-              </button>
+  async function loadEvents() {
+    try {
+      const response =
+        await fetch('/api/events', {
+          cache: 'no-store',
+        })
 
-            </div>
+      const data =
+        (await response.json()) as EventsResponse
 
-            <form
-              onSubmit={
-                createEvent
-              }
-            >
+      setEvents(data.events ?? [])
+    } catch {
+      setEvents([])
+    }
+  }
 
-              <label>
-                Nome
+  async function createEvent(
+    event: React.FormEvent,
+  ) {
+    event.preventDefault()
 
-                <input
-                  type="text"
-                  value={
-                    eventName
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setEventName(
-                      event.target
-                        .value,
-                    )
-                  }
-                  placeholder="Ex.: Regata Horta - Madalena"
-                  autoFocus
-                />
-              </label>
+    if (!eventName.trim()) {
+      setError(
+        'Indica o nome da regata.',
+      )
 
-              <label>
-                Início
+      return
+    }
 
-                <input
-                  type="datetime-local"
-                  value={
-                    startTime
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setStartTime(
-                      event.target
-                        .value,
-                    )
-                  }
-                />
-              </label>
+    setSaving(true)
+    setError(null)
 
-              <label>
-                Fim / hora limite
+    try {
+      const response =
+        await fetch(
+          '/api/events',
+          {
+            method: 'POST',
+            headers: {
+              'content-type':
+                'application/json',
+            },
+            body: JSON.stringify({
+              name:
+                eventName.trim(),
+              startTime:
+                startTime || null,
+              endTime:
+                endTime || null,
+            }),
+          },
+        )
 
-                <input
-                  type="datetime-local"
-                  value={
-                    endTime
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setEndTime(
-                      event.target
-                        .value,
-                    )
-                  }
-                />
-              </label>
+      const data =
+        await response.json() as {
+          ok: boolean
+          error?: string
+        }
 
-              {eventError && (
-                <div className="form-error">
-                  {eventError}
-                </div>
-              )}
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+        throw new Error(
+          data.error ||
+            'Erro ao criar regata',
+        )
+      }
 
-              <div className="modal-actions">
+      setEventName('')
+      setStartTime('')
+      setEndTime('')
 
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() =>
-                    setShowNewEvent(
-                      false,
-                    )
-                  }
-                >
-                  Cancelar
-                </button>
+      await loadEvents()
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao criar regata',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
 
-                <button
-                  type="submit"
-                  className="save-button"
-                  disabled={
-                    creatingEvent
-                  }
-                >
-                  {creatingEvent
-                    ? 'A guardar...'
-                    : 'Criar regata'}
-                </button>
+  return (
+    <main className="admin-page">
 
-              </div>
+      <header className="admin-header">
 
-            </form>
+        <div>
 
+          <div className="brand-small">
+            REGATA LIVE
           </div>
+
+          <h1>
+            Administração
+          </h1>
 
         </div>
 
-      )}
+        <a
+          href="/"
+          className="back-live-link"
+        >
+          ← Voltar ao Live
+        </a>
+
+      </header>
+
+      <div className="admin-content">
+
+        <section className="admin-card">
+
+          <h2>
+            Nova regata
+          </h2>
+
+          <form
+            onSubmit={createEvent}
+            className="admin-form"
+          >
+
+            <label>
+              Nome
+
+              <input
+                type="text"
+                value={eventName}
+                onChange={(event) =>
+                  setEventName(
+                    event.target.value,
+                  )
+                }
+                placeholder="Ex.: Regata Horta - Madalena"
+              />
+            </label>
+
+            <label>
+              Início
+
+              <input
+                type="datetime-local"
+                value={startTime}
+                onChange={(event) =>
+                  setStartTime(
+                    event.target.value,
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              Fim / hora limite
+
+              <input
+                type="datetime-local"
+                value={endTime}
+                onChange={(event) =>
+                  setEndTime(
+                    event.target.value,
+                  )
+                }
+              />
+            </label>
+
+            {error && (
+              <div className="form-error">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="save-button"
+              disabled={saving}
+            >
+              {saving
+                ? 'A guardar...'
+                : 'Criar regata'}
+            </button>
+
+          </form>
+
+        </section>
+
+        <section className="admin-card">
+
+          <h2>
+            Regatas
+          </h2>
+
+          {events.length === 0 ? (
+            <div className="empty-state">
+              Ainda não existem regatas.
+            </div>
+          ) : (
+            <div className="event-list">
+
+              {events.map(
+                (event) => (
+                  <div
+                    key={event.id}
+                    className="event-row"
+                  >
+
+                    <div>
+
+                      <strong>
+                        {event.name}
+                      </strong>
+
+                      <div className="event-meta">
+                        {event.status}
+                      </div>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      className="edit-event-button"
+                    >
+                      Editar
+                    </button>
+
+                  </div>
+                ),
+              )}
+
+            </div>
+          )}
+
+        </section>
+
+      </div>
 
     </main>
   )
+}
+
+function fitBoats(
+  map: L.Map,
+  boats: Boat[],
+) {
+  const boatsWithPosition =
+    boats.filter(
+      (boat) => boat.position,
+    )
+
+  if (
+    boatsWithPosition.length === 0
+  ) {
+    return
+  }
+
+  const bounds =
+    L.latLngBounds(
+      boatsWithPosition.map(
+        (boat) => [
+          boat.position!.latitude,
+          boat.position!.longitude,
+        ],
+      ),
+    )
+
+  if (
+    boatsWithPosition.length === 1
+  ) {
+    map.setView(
+      bounds.getCenter(),
+      13,
+    )
+  } else {
+    map.fitBounds(
+      bounds,
+      {
+        padding: [50, 50],
+        maxZoom: 13,
+      },
+    )
+  }
 }
 
 function escapeHtml(
   value: string,
 ) {
   return value
-    .replaceAll(
-      '&',
-      '&amp;',
-    )
-    .replaceAll(
-      '<',
-      '&lt;',
-    )
-    .replaceAll(
-      '>',
-      '&gt;',
-    )
-    .replaceAll(
-      '"',
-      '&quot;',
-    )
-    .replaceAll(
-      "'",
-      '&#039;',
-    )
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 export default App
