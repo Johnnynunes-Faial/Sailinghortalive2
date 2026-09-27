@@ -1,14 +1,16 @@
-# Sailing Horta Live 2 — v0.8.1
+# Sailing Horta Live 2 — v0.8.2
 
-Melhoria do Replay:
+Correção do clique nos barcos durante o Replay em Play.
 
-- tocar/clicar num barco passa a selecioná-lo;
-- abre um painel fixo sobre o mapa;
-- mostra nome, velocidade, rumo e hora;
-- o painel continua aberto durante o Play;
-- os valores atualizam continuamente enquanto a reprodução avança;
-- tocar noutro barco muda a seleção;
-- botão × fecha o painel;
-- funciona em computador e telemóvel.
+Problema:
+- os marcadores eram destruídos e recriados continuamente durante a reprodução;
+- enquanto o Replay estava em Play, isso fazia com que um clique pudesse perder-se antes de selecionar o barco.
 
-Mantém todas as funcionalidades da v0.8.
+Correção:
+- os marcadores dos barcos passam a ser persistentes;
+- durante o Play apenas atualizamos posição, rumo e ícone;
+- clicar/tocar num barco funciona com o Replay em movimento;
+- podes fechar o painel e selecionar imediatamente outro barco sem fazer Pause;
+- os rastos continuam a atualizar normalmente numa camada separada.
+
+Mantém todas as funcionalidades da v0.8.1.

@@ -668,6 +668,14 @@ function ReplayView() {
   const boatsLayerRef =
     useRef<L.LayerGroup | null>(null)
 
+  const replayTrailLayerRef =
+    useRef<L.LayerGroup | null>(null)
+
+  const replayBoatMarkersRef =
+    useRef<Map<number, L.Marker>>(
+      new Map(),
+    )
+
   const [events, setEvents] =
     useState<EventItem[]>([])
 
@@ -768,6 +776,9 @@ function ReplayView() {
       L.layerGroup().addTo(map)
 
     boatsLayerRef.current =
+      L.layerGroup().addTo(map)
+
+    replayTrailLayerRef.current =
       L.layerGroup().addTo(map)
 
     return () => {
@@ -1010,19 +1021,53 @@ function ReplayView() {
   }
 
   useEffect(() => {
-    const layer =
+    const map = mapRef.current
+    const boatsLayer =
       boatsLayerRef.current
+    const trailLayer =
+      replayTrailLayerRef.current
 
-    if (!layer) return
+    if (
+      !map ||
+      !boatsLayer ||
+      !trailLayer
+    ) {
+      return
+    }
 
-    layer.clearLayers()
+    trailLayer.clearLayers()
 
-    if (!replayData) return
+    if (!replayData) {
+      for (
+        const marker
+        of replayBoatMarkersRef.current.values()
+      ) {
+        marker.removeFrom(boatsLayer)
+      }
+
+      replayBoatMarkersRef.current.clear()
+      return
+    }
+
+    const activeIds =
+      new Set<number>()
 
     for (
       const track
       of replayData.tracks
     ) {
+      const position =
+        replayPositionAtTime(
+          track.positions,
+          currentTimeMs,
+        )
+
+      if (!position) {
+        continue
+      }
+
+      activeIds.add(track.deviceId)
+
       if (showReplayTrails) {
         const elapsedTrack =
           replayTrackUntilTime(
@@ -1033,9 +1078,9 @@ function ReplayView() {
         if (elapsedTrack.length > 1) {
           L.polyline(
             elapsedTrack.map(
-              (position) => [
-                position.latitude,
-                position.longitude,
+              (trackPoint) => [
+                trackPoint.latitude,
+                trackPoint.longitude,
               ] as [number, number],
             ),
             {
@@ -1046,40 +1091,67 @@ function ReplayView() {
               weight: 3,
               opacity: 0.62,
             },
-          ).addTo(layer)
+          ).addTo(trailLayer)
         }
       }
 
-      const position =
-        replayPositionAtTime(
-          track.positions,
-          currentTimeMs,
-        )
+      const icon = makeBoatIcon(
+        track.boatName,
+        position.course,
+        boatColor(
+          track.deviceId,
+        ),
+        showReplayNames,
+      )
 
-      if (!position) continue
-
-      const marker = L.marker(
-        [
-          position.latitude,
-          position.longitude,
-        ],
-        {
-          icon: makeBoatIcon(
-            track.boatName,
-            position.course,
-            boatColor(
-              track.deviceId,
-            ),
-            showReplayNames,
-          ),
-        },
-      ).addTo(layer)
-
-      marker.on('click', () => {
-        setSelectedReplayBoatId(
+      const existingMarker =
+        replayBoatMarkersRef.current.get(
           track.deviceId,
         )
-      })
+
+      if (existingMarker) {
+        existingMarker.setLatLng([
+          position.latitude,
+          position.longitude,
+        ])
+
+        existingMarker.setIcon(icon)
+      } else {
+        const marker = L.marker(
+          [
+            position.latitude,
+            position.longitude,
+          ],
+          {
+            icon,
+            riseOnHover: true,
+          },
+        ).addTo(boatsLayer)
+
+        marker.on('click', () => {
+          setSelectedReplayBoatId(
+            track.deviceId,
+          )
+        })
+
+        replayBoatMarkersRef.current.set(
+          track.deviceId,
+          marker,
+        )
+      }
+    }
+
+    for (
+      const [deviceId, marker]
+      of replayBoatMarkersRef.current.entries()
+    ) {
+      if (!activeIds.has(deviceId)) {
+        marker.removeFrom(boatsLayer)
+
+        replayBoatMarkersRef.current.delete(
+          deviceId,
+        )
+      }
     }
   }, [
     replayData,
