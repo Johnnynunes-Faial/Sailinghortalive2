@@ -1,18 +1,30 @@
-COMO ATUALIZAR
+COMO ATUALIZAR PARA v0.3
 
-1. Descompacta este ZIP.
+1. Descompacta o ZIP.
 2. No GitHub > Sailinghortalive2 > Add file > Upload files.
-3. Arrasta TODO o conteúdo que está dentro da pasta sailinghortalive2-participants:
-   src, index.html, package.json, README.md, vite.config.ts, wrangler.jsonc.
-4. Faz Commit changes na branch main.
+3. Arrasta TODO o conteúdo de dentro da pasta sailinghortalive2-v0.3:
+   - src
+   - index.html
+   - package.json
+   - README.md
+   - vite.config.ts
+   - wrangler.jsonc
+4. Commit changes para main.
 5. Aguarda o deploy automático do Cloudflare.
 
-TESTE:
-- Abre https://sailinghortalive.com/admin
-- Numa regata, clica Editar.
-- Devem aparecer TODOS os dispositivos/barcos do Traccar, mesmo offline.
-- Seleciona os participantes e guarda.
-- No Live público, Modo Geral mostra todos os barcos ativos.
-- Ao escolher uma regata, aparecem apenas participantes ativos dessa regata.
+IMPORTANTE
+Não precisas criar manualmente a tabela da biblioteca de bóias.
+O Worker cria `buoy_library` automaticamente na primeira utilização.
 
-Não é necessário alterar as tabelas D1.
+TESTES
+- /admin → editar uma regata
+- Geral → editar nome/horas e testar eliminar apenas numa regata de teste
+- Participantes → selecionar barcos e guardar
+- Percurso → clicar no mapa para adicionar pontos
+- Percurso → adicionar por coordenadas
+- Percurso → guardar uma bóia na biblioteca
+- Percurso → copiar uma bóia da biblioteca para o percurso
+- Guardar percurso
+- Voltar ao Live e selecionar a regata
+- Confirmar percurso + barcos participantes ativos
+- Modo Geral continua sem mostrar percurso

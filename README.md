@@ -1,9 +1,15 @@
-# Sailing Horta Live 2 — Participantes por Regata
+# Sailing Horta Live 2 — v0.3
 
-Esta versão acrescenta:
-- seleção de participantes por regata;
-- leitura de todos os dispositivos do Traccar no Admin;
-- gravação em `event_participants`;
-- Modo Geral com todos os barcos ativos;
-- vista de regata apenas com participantes dessa regata;
-- filtro de privacidade: posições com mais de 10 minutos não aparecem.
+Inclui:
+- eliminar e editar eventos;
+- participantes por evento;
+- módulo de percurso por evento;
+- adicionar pontos clicando no mapa;
+- adicionar por coordenadas;
+- biblioteca de bóias com cópia independente para cada percurso;
+- drag & drop dos pontos;
+- ordenação e remoção de pontos;
+- visualização do percurso no Live;
+- ícone SVG de veleiro;
+- cores estáveis diferentes por barco;
+- privacidade: barcos com posição >10 min não aparecem.

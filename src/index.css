@@ -13,7 +13,8 @@ body,
 
 body {
   overflow: hidden;
-  background: #071826;
+  background: #eef3f6;
+  color: #102331;
 }
 
 button,
@@ -34,58 +35,46 @@ button {
 }
 
 .top-bar {
-  min-height: 68px;
+  min-height: 66px;
   flex-shrink: 0;
   display: grid;
   grid-template-columns: minmax(190px, auto) minmax(260px, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 10px 18px;
-  background: #071826;
-  color: white;
+  background: #ffffff;
+  color: #102331;
+  border-bottom: 1px solid #dbe4ea;
   z-index: 1000;
-}
-
-.brand-block {
-  min-width: 0;
 }
 
 .brand-small {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
-  opacity: 0.55;
+  color: #78909c;
 }
 
 .brand-title {
   margin-top: 2px;
   font-size: 20px;
-  font-weight: 700;
-  white-space: nowrap;
+  font-weight: 800;
 }
 
 .event-controls {
-  min-width: 0;
   display: flex;
-  align-items: center;
   justify-content: center;
 }
 
 .event-select {
-  width: min(100%, 360px);
+  width: min(100%, 380px);
   min-width: 180px;
-  height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
+  height: 40px;
+  border: 1px solid #ccd8df;
+  border-radius: 10px;
   padding: 0 34px 0 12px;
-  background: rgba(255, 255, 255, 0.09);
-  color: white;
-  outline: none;
-}
-
-.event-select option {
-  color: #071826;
   background: white;
+  color: #102331;
 }
 
 .top-actions {
@@ -103,8 +92,7 @@ button {
   padding: 8px 11px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.09);
-  white-space: nowrap;
+  background: #eef3f6;
 }
 
 .status-dot {
@@ -114,20 +102,30 @@ button {
 }
 
 .connection.online .status-dot {
-  background: #36d399;
+  background: #2eaa64;
 }
 
 .connection.offline .status-dot {
-  background: #f45d5d;
+  background: #d84c4c;
+}
+
+.show-all-button,
+.save-button,
+.secondary-button,
+.edit-event-button,
+.tiny-button,
+.danger-button,
+.icon-danger,
+.tab {
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
 }
 
 .show-all-button {
-  border: 0;
-  border-radius: 8px;
   padding: 9px 12px;
-  background: white;
-  color: #071826;
-  font-weight: 700;
+  background: #102331;
+  color: white;
 }
 
 .map-container {
@@ -148,77 +146,67 @@ button {
   bottom: 18px;
   padding: 9px 12px;
   border-radius: 8px;
-  background: rgba(7, 24, 38, 0.88);
+  background: rgba(16, 35, 49, 0.86);
   color: white;
   font-size: 12px;
   font-weight: 700;
+  backdrop-filter: blur(8px);
 }
 
-.boat-marker-wrapper {
+.boat-marker-wrapper,
+.course-marker-wrapper {
   background: transparent !important;
   border: 0 !important;
 }
 
 .boat-marker {
   position: relative;
-  width: 120px;
-  height: 50px;
+  width: 130px;
+  height: 66px;
 }
 
-.boat-arrow {
+.boat-svg-wrap {
   position: absolute;
   left: 50%;
   top: 0;
-  width: 24px;
-  height: 24px;
-  margin-left: -12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #e53935;
-  font-size: 24px;
-  line-height: 1;
-  transform-origin: center;
-  text-shadow:
-    0 1px 2px white,
-    1px 0 2px white,
-    -1px 0 2px white,
-    0 -1px 2px white;
+  width: 30px;
+  height: 46px;
+  margin-left: -15px;
+  transform-origin: 15px 23px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35));
 }
 
 .boat-name {
   position: absolute;
-  top: 24px;
+  top: 45px;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 120px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #071826;
+  max-width: 126px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .92);
+  color: #102331;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
 }
 
 .admin-page {
   min-height: 100vh;
   background: #f4f7f9;
-  color: #071826;
   overflow-y: auto;
 }
 
 .admin-header {
-  min-height: 76px;
+  min-height: 74px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 16px 24px;
-  background: #071826;
+  padding: 15px 24px;
+  background: #102331;
   color: white;
 }
 
@@ -234,76 +222,93 @@ button {
 }
 
 .admin-content {
-  width: min(1100px, calc(100% - 32px));
-  margin: 26px auto;
+  width: min(1180px, calc(100% - 32px));
+  margin: 24px auto;
   display: grid;
   grid-template-columns: minmax(300px, 420px) 1fr;
   gap: 22px;
 }
 
-.admin-card {
+.admin-card,
+.course-panel {
   border-radius: 14px;
   padding: 20px;
   background: white;
   box-shadow: 0 6px 24px rgba(7, 24, 38, 0.08);
 }
 
-.admin-card h2 {
-  margin: 0 0 18px;
+.admin-card h2,
+.course-panel h3 {
+  margin-top: 0;
 }
 
-.admin-form {
+.admin-form,
+.general-editor {
   display: grid;
   gap: 14px;
 }
 
-.admin-form label {
+.admin-form label,
+.general-editor label,
+.course-toolbar label {
   display: grid;
   gap: 7px;
   font-size: 13px;
   font-weight: 700;
 }
 
-.admin-form input {
+.admin-form input,
+.general-editor input,
+.course-editor input,
+.course-editor select {
   width: 100%;
-  height: 42px;
+  min-height: 42px;
   border: 1px solid #ccd5dd;
   border-radius: 8px;
   padding: 0 11px;
+  background: white;
+  color: #102331;
 }
 
-.form-error {
+.form-error,
+.inline-message {
   border-radius: 8px;
   padding: 10px 12px;
-  background: #fff0f0;
-  color: #b42318;
   font-size: 13px;
   font-weight: 600;
 }
 
-.save-button,
-.secondary-button,
-.edit-event-button {
-  min-height: 38px;
-  border: 0;
-  border-radius: 8px;
-  padding: 0 13px;
-  font-weight: 700;
+.form-error {
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.inline-message {
+  margin: 12px 20px 0;
+  background: #eef6ff;
+  color: #245b8e;
 }
 
 .save-button {
+  min-height: 40px;
+  padding: 0 15px;
   background: #1f7ae0;
   color: white;
 }
 
 .secondary-button,
 .edit-event-button {
+  min-height: 36px;
+  padding: 0 12px;
   background: #eef2f5;
-  color: #071826;
+  color: #102331;
 }
 
-.save-button:disabled {
-  opacity: 0.6;
+.danger-button {
+  min-height: 40px;
+  padding: 0 14px;
+  background: #b42318;
+  color: white;
 }
 
 .event-list {
@@ -328,14 +333,6 @@ button {
   font-size: 12px;
 }
 
-.empty-state {
-  padding: 22px;
-  border-radius: 10px;
-  background: #f7f9fb;
-  color: #71808d;
-  text-align: center;
-}
-
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -348,16 +345,16 @@ button {
   backdrop-filter: blur(4px);
 }
 
-.participants-modal {
-  width: min(100%, 620px);
-  max-height: calc(100vh - 40px);
+.event-editor-modal {
+  width: min(1180px, calc(100vw - 34px));
+  max-height: calc(100vh - 34px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 14px;
-  background: white;
-  color: #071826;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  border-radius: 16px;
+  background: #f4f7f9;
+  color: #102331;
+  box-shadow: 0 24px 80px rgba(0,0,0,.28);
 }
 
 .participants-header {
@@ -365,42 +362,68 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
-  border-bottom: 1px solid #e9eef2;
+  padding: 18px 20px;
+  background: white;
+  border-bottom: 1px solid #e4ebef;
 }
 
 .participants-header h2 {
   margin: 4px 0 0;
-  font-size: 22px;
 }
 
 .modal-small {
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: .14em;
   color: #708090;
 }
 
 .modal-close {
   width: 34px;
   height: 34px;
-  flex-shrink: 0;
   border: 0;
   border-radius: 50%;
   background: #eef2f5;
-  color: #071826;
   font-size: 24px;
-  line-height: 1;
 }
 
-.modal-message {
-  padding: 28px 20px;
-  color: #71808d;
-  text-align: center;
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  background: white;
+  border-bottom: 1px solid #e4ebef;
 }
 
-.modal-error {
-  margin: 14px 20px 0;
+.tab {
+  padding: 9px 14px;
+  background: #eef2f5;
+  color: #546773;
+}
+
+.tab.active {
+  background: #102331;
+  color: white;
+}
+
+.editor-body {
+  overflow-y: auto;
+}
+
+.general-editor {
+  max-width: 620px;
+  margin: 22px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 14px;
+}
+
+.general-actions,
+.participants-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
 }
 
 .participants-toolbar {
@@ -408,19 +431,17 @@ button {
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  border-bottom: 1px solid #e9eef2;
+  background: white;
+  border-bottom: 1px solid #e4ebef;
 }
 
 .participants-toolbar span {
   margin-right: auto;
-  font-size: 13px;
   font-weight: 700;
 }
 
 .devices-list {
-  min-height: 180px;
-  overflow-y: auto;
-  padding: 10px 20px;
+  padding: 12px 20px;
 }
 
 .device-row {
@@ -431,6 +452,7 @@ button {
   padding: 11px 12px;
   border: 1px solid #e1e7ec;
   border-radius: 10px;
+  background: white;
   cursor: pointer;
 }
 
@@ -439,21 +461,9 @@ button {
   background: #eef6ff;
 }
 
-.device-row input {
-  width: 18px;
-  height: 18px;
-}
-
 .device-info {
-  min-width: 0;
   display: grid;
   gap: 3px;
-}
-
-.device-info strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .device-info span {
@@ -461,12 +471,197 @@ button {
   font-size: 11px;
 }
 
-.participants-actions {
+.course-editor {
+  padding: 14px;
+}
+
+.course-toolbar {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.course-help {
+  color: #607581;
+  font-size: 13px;
+  padding-bottom: 10px;
+}
+
+.course-map {
+  height: 420px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #d9e3e8;
+}
+
+.course-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.coordinate-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.library-list {
+  display: grid;
+  gap: 8px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.library-row {
   display: flex;
-  justify-content: flex-end;
-  gap: 9px;
-  padding: 16px 20px 20px;
-  border-top: 1px solid #e9eef2;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e1e7ec;
+  border-radius: 9px;
+}
+
+.library-row > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.library-row span {
+  font-size: 11px;
+  color: #71808d;
+}
+
+.library-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-danger {
+  width: 34px;
+  min-height: 34px;
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.library-create {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e7ecef;
+}
+
+.course-points-panel {
+  margin-top: 14px;
+}
+
+.course-points-list {
+  display: grid;
+  gap: 8px;
+}
+
+.course-point-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid #e1e7ec;
+  border-radius: 9px;
+}
+
+.point-order {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #102331;
+  color: white;
+  font-weight: 800;
+}
+
+.point-info {
+  display: grid;
+  gap: 3px;
+}
+
+.point-info span {
+  color: #71808d;
+  font-size: 11px;
+}
+
+.point-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.tiny-button {
+  width: 32px;
+  height: 32px;
+  background: #eef2f5;
+  color: #102331;
+}
+
+.tiny-button.danger {
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.course-marker {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #1f7ae0;
+  color: #102331;
+  font-weight: 800;
+  box-shadow: 0 2px 5px rgba(0,0,0,.2);
+}
+
+.course-marker.start {
+  border-color: #2eaa64;
+}
+
+.course-marker.finish {
+  border-color: #b42318;
+}
+
+.course-marker.waypoint {
+  border-color: #7d5bbe;
+}
+
+.course-marker-label {
+  position: absolute;
+  left: 36px;
+  top: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: rgba(255,255,255,.94);
+  color: #102331;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,.14);
+}
+
+.empty-state {
+  padding: 18px;
+  border-radius: 10px;
+  background: #f7f9fb;
+  color: #71808d;
+  text-align: center;
+}
+
+.empty-state.compact {
+  padding: 10px;
+  font-size: 12px;
 }
 
 @media (max-width: 900px) {
@@ -483,17 +678,13 @@ button {
     width: 100%;
     max-width: none;
   }
-}
 
-@media (max-width: 750px) {
   .admin-content {
-    width: calc(100% - 20px);
-    margin: 10px auto;
     grid-template-columns: 1fr;
   }
 
-  .admin-form input {
-    font-size: 16px;
+  .course-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -516,30 +707,38 @@ button {
     display: none;
   }
 
+  .event-editor-modal {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+  }
+
   .modal-backdrop {
     align-items: flex-end;
     padding: 0;
   }
 
-  .participants-modal {
-    width: 100%;
-    max-height: 92vh;
-    border-radius: 16px 16px 0 0;
+  .course-map {
+    height: 330px;
   }
 
-  .participants-toolbar {
-    flex-wrap: wrap;
+  .course-toolbar {
+    grid-template-columns: 1fr;
   }
 
-  .participants-toolbar span {
-    width: 100%;
+  .coordinate-row {
+    grid-template-columns: 1fr;
   }
 
-  .participants-actions {
+  .tabs {
+    overflow-x: auto;
+  }
+
+  .general-actions {
     flex-direction: column-reverse;
   }
 
-  .participants-actions button {
+  .general-actions button {
     width: 100%;
   }
 }

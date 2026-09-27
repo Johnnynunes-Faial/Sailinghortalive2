@@ -100,6 +100,19 @@ async function getActiveBoats(env: Env) {
     .filter((boat): boat is NonNullable<typeof boat> => boat !== null)
 }
 
+async function ensureLibraryTable(env: Env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS buoy_library (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      latitude REAL NOT NULL,
+      longitude REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run()
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -132,7 +145,6 @@ export default {
     }
 
     const liveEventMatch = url.pathname.match(/^\/api\/events\/([^/]+)\/live$/)
-
     if (liveEventMatch && request.method === 'GET') {
       try {
         const eventId = liveEventMatch[1]
@@ -148,11 +160,19 @@ export default {
 
         const boats = (await getActiveBoats(env)).filter((boat) => allowedIds.has(boat.id))
 
+        const course = await env.DB.prepare(`
+          SELECT id, event_id, point_type, name, latitude, longitude, point_order
+          FROM course_points
+          WHERE event_id = ?
+          ORDER BY point_order ASC
+        `).bind(eventId).all()
+
         return json({
           ok: true,
           eventId,
           updatedAt: new Date().toISOString(),
           boats,
+          course: course.results ?? [],
         })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro Live da regata' }, 500)
@@ -185,6 +205,53 @@ export default {
         return json({ ok: true, id }, 201)
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao criar regata' }, 500)
+      }
+    }
+
+    const adminEventMatch = url.pathname.match(/^\/admin\/api\/events\/([^/]+)$/)
+
+    if (adminEventMatch && request.method === 'PUT') {
+      try {
+        const eventId = adminEventMatch[1]
+        const body = await request.json() as {
+          name?: string
+          startTime?: string | null
+          endTime?: string | null
+        }
+
+        const name = body.name?.trim()
+        if (!name) return json({ ok: false, error: 'Nome da regata obrigatório' }, 400)
+
+        await env.DB.prepare(`
+          UPDATE events
+          SET name = ?, start_time = ?, end_time = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(
+          name,
+          body.startTime ?? null,
+          body.endTime ?? null,
+          eventId,
+        ).run()
+
+        return json({ ok: true })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao atualizar regata' }, 500)
+      }
+    }
+
+    if (adminEventMatch && request.method === 'DELETE') {
+      try {
+        const eventId = adminEventMatch[1]
+
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM event_participants WHERE event_id = ?`).bind(eventId),
+          env.DB.prepare(`DELETE FROM course_points WHERE event_id = ?`).bind(eventId),
+          env.DB.prepare(`DELETE FROM events WHERE id = ?`).bind(eventId),
+        ])
+
+        return json({ ok: true })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao eliminar regata' }, 500)
       }
     }
 
@@ -256,16 +323,12 @@ export default {
 
         const statements = [
           env.DB.prepare(`
-            DELETE FROM event_participants
-            WHERE event_id = ?
+            DELETE FROM event_participants WHERE event_id = ?
           `).bind(eventId),
-
           ...participants.map((participant) =>
             env.DB.prepare(`
               INSERT INTO event_participants (
-                event_id,
-                traccar_device_id,
-                boat_name
+                event_id, traccar_device_id, boat_name
               )
               VALUES (?, ?, ?)
             `).bind(
@@ -281,6 +344,161 @@ export default {
         return json({ ok: true, count: participants.length })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao guardar participantes' }, 500)
+      }
+    }
+
+    const courseMatch = url.pathname.match(
+      /^\/admin\/api\/events\/([^/]+)\/course$/,
+    )
+
+    if (courseMatch && request.method === 'GET') {
+      try {
+        const eventId = courseMatch[1]
+        const result = await env.DB.prepare(`
+          SELECT id, event_id, point_type, name, latitude, longitude, point_order
+          FROM course_points
+          WHERE event_id = ?
+          ORDER BY point_order ASC
+        `).bind(eventId).all()
+
+        return json({ ok: true, points: result.results ?? [] })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar percurso' }, 500)
+      }
+    }
+
+    if (courseMatch && request.method === 'PUT') {
+      try {
+        const eventId = courseMatch[1]
+        const body = await request.json() as {
+          points?: Array<{
+            pointType: string
+            name?: string
+            latitude: number
+            longitude: number
+            pointOrder: number
+          }>
+        }
+
+        const points = Array.isArray(body.points) ? body.points : []
+
+        const statements = [
+          env.DB.prepare(`DELETE FROM course_points WHERE event_id = ?`).bind(eventId),
+          ...points.map((point) =>
+            env.DB.prepare(`
+              INSERT INTO course_points (
+                event_id, point_type, name, latitude, longitude, point_order
+              )
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).bind(
+              eventId,
+              point.pointType,
+              point.name ?? null,
+              point.latitude,
+              point.longitude,
+              point.pointOrder,
+            ),
+          ),
+        ]
+
+        await env.DB.batch(statements)
+
+        return json({ ok: true, count: points.length })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao guardar percurso' }, 500)
+      }
+    }
+
+    if (url.pathname === '/admin/api/buoy-library' && request.method === 'GET') {
+      try {
+        await ensureLibraryTable(env)
+
+        const result = await env.DB.prepare(`
+          SELECT id, name, latitude, longitude, created_at, updated_at
+          FROM buoy_library
+          ORDER BY name COLLATE NOCASE ASC
+        `).all()
+
+        return json({ ok: true, buoys: result.results ?? [] })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar biblioteca' }, 500)
+      }
+    }
+
+    if (url.pathname === '/admin/api/buoy-library' && request.method === 'POST') {
+      try {
+        await ensureLibraryTable(env)
+
+        const body = await request.json() as {
+          name?: string
+          latitude?: number
+          longitude?: number
+        }
+
+        const name = body.name?.trim()
+        const latitude = Number(body.latitude)
+        const longitude = Number(body.longitude)
+
+        if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return json({ ok: false, error: 'Nome e coordenadas válidas são obrigatórios' }, 400)
+        }
+
+        const result = await env.DB.prepare(`
+          INSERT INTO buoy_library (name, latitude, longitude)
+          VALUES (?, ?, ?)
+        `).bind(name, latitude, longitude).run()
+
+        return json({ ok: true, id: result.meta.last_row_id }, 201)
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao criar bóia' }, 500)
+      }
+    }
+
+    const buoyMatch = url.pathname.match(/^\/admin\/api\/buoy-library\/(\d+)$/)
+
+    if (buoyMatch && request.method === 'PUT') {
+      try {
+        await ensureLibraryTable(env)
+
+        const id = Number(buoyMatch[1])
+        const body = await request.json() as {
+          name?: string
+          latitude?: number
+          longitude?: number
+        }
+
+        const name = body.name?.trim()
+        const latitude = Number(body.latitude)
+        const longitude = Number(body.longitude)
+
+        if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return json({ ok: false, error: 'Nome e coordenadas válidas são obrigatórios' }, 400)
+        }
+
+        await env.DB.prepare(`
+          UPDATE buoy_library
+          SET name = ?, latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(name, latitude, longitude, id).run()
+
+        return json({ ok: true })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao atualizar bóia' }, 500)
+      }
+    }
+
+    if (buoyMatch && request.method === 'DELETE') {
+      try {
+        await ensureLibraryTable(env)
+        const id = Number(buoyMatch[1])
+
+        await env.DB.prepare(`
+          DELETE FROM buoy_library WHERE id = ?
+        `).bind(id).run()
+
+        return json({ ok: true })
+      } catch (error) {
+        return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao eliminar bóia' }, 500)
       }
     }
 
