@@ -111,7 +111,7 @@ export default {
 
     // CRIAÇÃO ADMINISTRATIVA DE REGATA
     if (
-      url.pathname === '/api/admin/events' &&
+      url.pathname === '/admin/api/events' &&
       request.method === 'POST'
     ) {
       try {
