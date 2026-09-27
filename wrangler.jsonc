@@ -10,7 +10,12 @@
   "vars": {
     "TRACCAR_URL": "https://api.sailinghortalive.com"
   },
-
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_id": "7e586c8d-1b50-4d4a-b79a-5a7bb2976ea7"
+  },
+],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
