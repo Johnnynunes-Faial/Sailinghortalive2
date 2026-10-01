@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sailing-horta-live-v12'
+const CACHE_NAME = 'sailing-horta-live-v12-1'
 
 const SHELL = [
   '/',

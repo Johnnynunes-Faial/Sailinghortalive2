@@ -1,16 +1,15 @@
-# Sailing Horta Live 2 — v0.12 PWA
+# Sailing Horta Live 2 — v0.12.1 PWA Logo
 
-O site passa a poder ser instalado/adicionado ao ecrã principal como uma Progressive Web App (PWA).
+Atualização da PWA para usar o logótipo Sailing Horta fornecido pelo utilizador como ícone da aplicação.
 
 Incluído:
-- manifest.webmanifest;
-- ícones 192x192 e 512x512;
-- apple-touch-icon para iPhone/iPad;
-- favicon;
-- modo standalone, sem a barra normal do browser quando aberto pelo ícone;
-- service worker leve;
-- APIs Live/Admin nunca são colocadas em cache;
-- páginas e assets usam rede primeiro, para que novas versões continuem a aparecer normalmente;
-- cache serve apenas como fallback básico se a rede falhar.
+- ícone PWA 192x192;
+- ícone PWA 512x512;
+- Apple Touch Icon 180x180;
+- favicon 64x64;
+- master 1024x1024;
+- atualização da cache do service worker para obrigar os dispositivos a receber os novos ícones.
 
-Não foi criado modo offline para Live ou Replay, porque esses dados dependem do servidor.
+O ícone usa apenas o emblema gráfico do logótipo, sem a palavra SAILINGHORTA, porque o texto ficaria demasiado pequeno num ícone de telemóvel.
+
+Mantém todas as funcionalidades da v0.12.

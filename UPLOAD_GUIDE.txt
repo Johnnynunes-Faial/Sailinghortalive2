@@ -1,23 +1,16 @@
-v0.12 — PWA / INSTALAR NO ECRÃ PRINCIPAL
+v0.12.1 — ÍCONE SAILING HORTA NA PWA
 
-Carrega esta versão por cima da v0.11 como habitual.
+Carrega esta versão por cima da v0.12 como habitual.
 
-IPHONE / IPAD
-1. Abrir https://sailinghortalive.com no Safari.
-2. Tocar em Partilhar.
-3. Escolher “Adicionar ao ecrã principal”.
-4. Confirmar “Adicionar”.
-5. O ícone Sailing Horta Live aparece no ecrã e abre o site em modo de app.
+DEPOIS DO DEPLOY:
+1. Se já tinhas a app instalada no telemóvel, remove o atalho/app do ecrã principal.
+2. Fecha e volta a abrir o Safari/Chrome.
+3. Abre https://sailinghortalive.com
+4. Adiciona novamente ao ecrã principal / instala a aplicação.
+5. O novo ícone deve ser o emblema Sailing Horta.
 
-ANDROID / CHROME
-1. Abrir https://sailinghortalive.com no Chrome.
-2. Abrir o menu.
-3. Escolher “Instalar aplicação” ou “Adicionar ao ecrã principal”.
-4. Confirmar.
+iPhone/iPad:
+Safari → Partilhar → Adicionar ao ecrã principal.
 
-TESTES
-- abrir pelo ícone;
-- confirmar que o Live continua a atualizar;
-- confirmar Replay;
-- confirmar Admin/Modo Regata;
-- fazer novo deploy e confirmar que a PWA recebe a versão nova normalmente.
+Android:
+Chrome → menu → Instalar aplicação / Adicionar ao ecrã principal.
