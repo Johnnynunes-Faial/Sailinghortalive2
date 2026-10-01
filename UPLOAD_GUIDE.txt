@@ -1,16 +1,19 @@
-v0.12.1 — ÍCONE SAILING HORTA NA PWA
+v0.12.2 — ÍCONE iOS + IMAGEM DE PARTILHA
 
-Carrega esta versão por cima da v0.12 como habitual.
+1. Carrega esta versão por cima da v0.12.1.
+2. Aguarda o deploy Cloudflare.
 
-DEPOIS DO DEPLOY:
-1. Se já tinhas a app instalada no telemóvel, remove o atalho/app do ecrã principal.
-2. Fecha e volta a abrir o Safari/Chrome.
-3. Abre https://sailinghortalive.com
-4. Adiciona novamente ao ecrã principal / instala a aplicação.
-5. O novo ícone deve ser o emblema Sailing Horta.
+TESTE DO ÍCONE NO IPHONE:
+- apaga o atalho/app antigo do ecrã principal;
+- fecha o Safari;
+- abre novamente https://sailinghortalive.com;
+- Partilhar → Adicionar ao ecrã principal;
+- confirma se aparece o emblema Sailing Horta.
 
-iPhone/iPad:
-Safari → Partilhar → Adicionar ao ecrã principal.
+TESTE DA PARTILHA:
+- partilha https://sailinghortalive.com no Facebook/WhatsApp;
+- deverá aparecer a imagem social-share.jpg com título e descrição.
 
-Android:
-Chrome → menu → Instalar aplicação / Adicionar ao ecrã principal.
+IMPORTANTE:
+Facebook e outras plataformas fazem cache da pré-visualização.
+Se continuar a aparecer a imagem antiga ou nenhuma imagem, pode ser necessário esperar ou usar a ferramenta de debug/crawler da própria plataforma para forçar nova leitura.

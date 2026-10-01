@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sailing-horta-live-v12-1'
+const CACHE_NAME = 'sailing-horta-live-v12-2'
 
 const SHELL = [
   '/',
@@ -7,6 +7,7 @@ const SHELL = [
   '/pwa-512.png',
   '/apple-touch-icon.png',
   '/favicon.png',
+  '/social-share.jpg',
 ]
 
 self.addEventListener('install', (event) => {
