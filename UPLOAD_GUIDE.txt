@@ -1,20 +1,23 @@
-v0.11 — CACHE PERSISTENTE DO REPLAY
+v0.12 — PWA / INSTALAR NO ECRÃ PRINCIPAL
 
-Carrega por cima da v0.10.1 como habitual.
+Carrega esta versão por cima da v0.11 como habitual.
 
-Não precisas criar nenhuma tabela manualmente.
+IPHONE / IPAD
+1. Abrir https://sailinghortalive.com no Safari.
+2. Tocar em Partilhar.
+3. Escolher “Adicionar ao ecrã principal”.
+4. Confirmar “Adicionar”.
+5. O ícone Sailing Horta Live aparece no ecrã e abre o site em modo de app.
 
-TESTE RECOMENDADO
-1. Faz o deploy.
-2. Abre uma regata antiga no Replay.
-3. A primeira abertura pode demorar o normal: ainda consulta o Traccar.
-4. Volta à lista e abre a mesma regata novamente.
-5. A segunda abertura deve usar os tracks guardados em D1 e deixar de consultar o Traccar para esses barcos.
+ANDROID / CHROME
+1. Abrir https://sailinghortalive.com no Chrome.
+2. Abrir o menu.
+3. Escolher “Instalar aplicação” ou “Adicionar ao ecrã principal”.
+4. Confirmar.
 
-ALTERAÇÕES AO PERCURSO
-- Podes continuar a ajustar bóias, waypoints e linhas no Admin.
-- Esses elementos NÃO ficam presos na cache.
-- O Replay usa sempre o percurso atual da base de dados.
-
-ALTERAÇÕES AO HORÁRIO
-- Se mudares início/fim da regata, o sistema deteta que o intervalo mudou e volta automaticamente ao Traccar para atualizar os tracks.
+TESTES
+- abrir pelo ícone;
+- confirmar que o Live continua a atualizar;
+- confirmar Replay;
+- confirmar Admin/Modo Regata;
+- fazer novo deploy e confirmar que a PWA recebe a versão nova normalmente.
