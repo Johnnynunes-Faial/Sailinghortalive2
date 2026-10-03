@@ -1,19 +1,18 @@
-v0.12.2 — ÍCONE iOS + IMAGEM DE PARTILHA
+v0.13 — WINDY DINÂMICO + MAPA MARÍTIMO
 
-1. Carrega esta versão por cima da v0.12.1.
-2. Aguarda o deploy Cloudflare.
+Carrega por cima da v0.12.2 como habitual.
 
-TESTE DO ÍCONE NO IPHONE:
-- apaga o atalho/app antigo do ecrã principal;
-- fecha o Safari;
-- abre novamente https://sailinghortalive.com;
-- Partilhar → Adicionar ao ecrã principal;
-- confirma se aparece o emblema Sailing Horta.
+TESTE WINDY
+1. Abrir Live.
+2. Selecionar uma regata noutra ilha, por exemplo São Miguel.
+3. Confirmar que o mapa fica nessa zona.
+4. Camadas → ativar Vento (Windy).
+5. O Windy deve abrir centrado aproximadamente na mesma área do mapa.
 
-TESTE DA PARTILHA:
-- partilha https://sailinghortalive.com no Facebook/WhatsApp;
-- deverá aparecer a imagem social-share.jpg com título e descrição.
+TESTE MAPA MARÍTIMO
+- Live: devem aparecer elementos náuticos do OpenSeaMap.
+- Replay: idem.
+- Admin > Percurso: idem.
 
-IMPORTANTE:
-Facebook e outras plataformas fazem cache da pré-visualização.
-Se continuar a aparecer a imagem antiga ou nenhuma imagem, pode ser necessário esperar ou usar a ferramenta de debug/crawler da própria plataforma para forçar nova leitura.
+NOTA
+A camada marítima é OpenSeaMap sobre OpenStreetMap; não substitui completamente o mapa terrestre.

@@ -1,13 +1,25 @@
-# Sailing Horta Live 2 — v0.12.2
+# Sailing Horta Live 2 — v0.13
 
-Melhorias:
-- imagem Open Graph para partilha do site em Facebook, WhatsApp, LinkedIn e outras plataformas;
-- metatags OG/Twitter adicionadas ao `<head>`;
-- imagem de partilha guardada em `/social-share.jpg`;
-- reforço do `apple-touch-icon` para iOS com tamanho explícito 180x180;
-- cache-busting nos ícones da PWA para forçar atualização;
-- cache do service worker atualizada.
+Duas melhorias no mapa e meteorologia.
 
-Nota iOS:
-Se já tinhas o site guardado no ecrã principal, o iOS pode manter o ícone antigo em cache.
-Remove o atalho/app antigo e volta a adicionar depois do deploy.
+## Windy acompanha a área do mapa
+Ao ativar “Vento (Windy)”, o site lê o centro e o zoom atuais do mapa principal.
+O Windy abre nessa mesma zona em vez de abrir sempre no Faial.
+
+Exemplo:
+- selecionas uma regata em São Miguel;
+- o mapa enquadra São Miguel;
+- ativas Windy;
+- o Windy abre centrado em São Miguel.
+
+## Mapa marítimo
+Todos os mapas Leaflet passam a usar:
+- OpenStreetMap como cartografia base;
+- OpenSeaMap por cima, com informação náutica/seamarks.
+
+Foi aplicado a:
+- Live;
+- Replay;
+- editor de percurso do Admin.
+
+O OpenSeaMap é uma camada marítima sobre o mapa base, por isso mantemos estradas/costa/terra e acrescentamos a informação náutica.

@@ -155,6 +155,29 @@ const BOAT_COLORS = [
   '#d81b60',
 ]
 
+function addNauticalMapLayers(
+  map: L.Map,
+) {
+  L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 19,
+      attribution:
+        '&copy; OpenStreetMap contributors',
+    },
+  ).addTo(map)
+
+  L.tileLayer(
+    'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+    {
+      maxZoom: 18,
+      opacity: 0.9,
+      attribution:
+        'Map data &copy; OpenSeaMap contributors',
+    },
+  ).addTo(map)
+}
+
 function App() {
   const path = window.location.pathname
 
@@ -194,6 +217,11 @@ function PublicLiveView() {
   const [showCourse, setShowCourse] = useState(true)
   const [showNames, setShowNames] = useState(true)
   const [showWind, setShowWind] = useState(false)
+  const [windyView, setWindyView] = useState({
+    lat: 38.535,
+    lon: -28.63,
+    zoom: 8,
+  })
   const [layersOpen, setLayersOpen] = useState(false)
   const [showTracks, setShowTracks] = useState(false)
   const [tracks, setTracks] = useState<BoatTrack[]>([])
@@ -309,13 +337,7 @@ function PublicLiveView() {
 
     const map = L.map(mapElementRef.current).setView([38.535, -28.63], 11)
 
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-      },
-    ).addTo(map)
+    addNauticalMapLayers(map)
 
     mapRef.current = map
     courseLayerRef.current = L.layerGroup().addTo(map)
@@ -787,6 +809,37 @@ function PublicLiveView() {
     else if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 13 })
   }
 
+  function setWindyVisible(
+    visible: boolean,
+  ) {
+    if (visible) {
+      const map = mapRef.current
+
+      if (map) {
+        const center = map.getCenter()
+
+        // O zoom do Windy não corresponde exatamente ao Leaflet.
+        // Mantemos uma aproximação confortável para a área visível.
+        const zoom = Math.max(
+          3,
+          Math.min(
+            12,
+            Math.round(map.getZoom() - 1),
+          ),
+        )
+
+        setWindyView({
+          lat: center.lat,
+          lon: center.lng,
+          zoom,
+        })
+      }
+    }
+
+    setShowWind(visible)
+  }
+
+
   return (
     <main className="live-app">
       <header className="top-bar">
@@ -950,7 +1003,11 @@ function PublicLiveView() {
               <input
                 type="checkbox"
                 checked={showWind}
-                onChange={(event) => setShowWind(event.target.checked)}
+                onChange={(event) =>
+                  setWindyVisible(
+                    event.target.checked,
+                  )
+                }
               />
             </label>
           </div>
@@ -963,7 +1020,9 @@ function PublicLiveView() {
               <button
                 type="button"
                 className="windy-close"
-                onClick={() => setShowWind(false)}
+                onClick={() =>
+                  setWindyVisible(false)
+                }
               >
                 ×
               </button>
@@ -972,7 +1031,17 @@ function PublicLiveView() {
             <iframe
               title="Windy"
               className="windy-frame"
-              src="https://embed.windy.com/embed2.html?lat=38.535&lon=-28.630&detailLat=38.535&detailLon=-28.630&width=650&height=450&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1"
+              src={
+                `https://embed.windy.com/embed2.html?lat=${windyView.lat.toFixed(4)}` +
+                `&lon=${windyView.lon.toFixed(4)}` +
+                `&detailLat=${windyView.lat.toFixed(4)}` +
+                `&detailLon=${windyView.lon.toFixed(4)}` +
+                `&width=650&height=450&zoom=${windyView.zoom}` +
+                '&level=surface&overlay=wind&product=ecmwf' +
+                '&menu=&message=&marker=&calendar=now&pressure=' +
+                '&type=map&location=coordinates&detail=' +
+                '&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1'
+              }
               loading="lazy"
             />
           </div>
@@ -1116,14 +1185,7 @@ function ReplayView() {
           10,
         )
 
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        maxZoom: 19,
-        attribution:
-          '&copy; OpenStreetMap contributors',
-      },
-    ).addTo(map)
+    addNauticalMapLayers(map)
 
     mapRef.current = map
     courseLayerRef.current =
@@ -3320,10 +3382,7 @@ function CourseEditor({ event }: { event: EventItem }) {
 
     const map = L.map(mapElRef.current).setView([38.535, -28.63], 11)
 
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' },
-    ).addTo(map)
+    addNauticalMapLayers(map)
 
     layerRef.current = L.layerGroup().addTo(map)
     historyLayerRef.current = L.layerGroup().addTo(map)
