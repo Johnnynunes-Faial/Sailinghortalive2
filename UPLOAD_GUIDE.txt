@@ -1,18 +1,12 @@
-v0.13 — WINDY DINÂMICO + MAPA MARÍTIMO
+v0.14 — RASTO NO LIVE GLOBAL
 
-Carrega por cima da v0.12.2 como habitual.
+Carregar por cima da v0.13 como habitual.
 
-TESTE WINDY
-1. Abrir Live.
-2. Selecionar uma regata noutra ilha, por exemplo São Miguel.
-3. Confirmar que o mapa fica nessa zona.
-4. Camadas → ativar Vento (Windy).
-5. O Windy deve abrir centrado aproximadamente na mesma área do mapa.
+TESTE
+1. Abrir o Live em Modo Geral.
+2. Abrir Camadas.
+3. Ativar “Rasto dos barcos (20 min)”.
+4. Confirmar que cada barco ativo mostra o seu rasto recente na própria cor.
+5. Selecionar uma regata Live e confirmar que o rasto da regata continua a usar os últimos 2 NM.
 
-TESTE MAPA MARÍTIMO
-- Live: devem aparecer elementos náuticos do OpenSeaMap.
-- Replay: idem.
-- Admin > Percurso: idem.
-
-NOTA
-A camada marítima é OpenSeaMap sobre OpenStreetMap; não substitui completamente o mapa terrestre.
+Não é necessário alterar D1 nem Cloudflare manualmente.

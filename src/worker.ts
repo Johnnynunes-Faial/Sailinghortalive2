@@ -242,6 +242,79 @@ async function getTrackForDevice(
 }
 
 
+async function getRecentTrackForDevice(
+  env: Env,
+  deviceId: number,
+  minutes: number,
+) {
+  const to = new Date()
+  const from = new Date(
+    to.getTime() - minutes * 60 * 1000,
+  )
+
+  const params = new URLSearchParams({
+    deviceId: String(deviceId),
+    from: from.toISOString(),
+    to: to.toISOString(),
+  })
+
+  const response = await traccarFetch(
+    env,
+    `/api/reports/route?${params.toString()}`,
+  )
+
+  if (!response.ok) {
+    return []
+  }
+
+  const positions =
+    (await response.json()) as TraccarPosition[]
+
+  const valid = positions
+    .filter(
+      (position) =>
+        Number.isFinite(position.latitude) &&
+        Number.isFinite(position.longitude),
+    )
+    .sort((a, b) => {
+      const ta = new Date(
+        a.fixTime ??
+          a.deviceTime ??
+          a.serverTime ??
+          0,
+      ).getTime()
+
+      const tb = new Date(
+        b.fixTime ??
+          b.deviceTime ??
+          b.serverTime ??
+          0,
+      ).getTime()
+
+      return ta - tb
+    })
+
+  // Evita linhas excessivamente pesadas se um dispositivo
+  // estiver configurado para enviar posições com muita frequência.
+  const MAX_POINTS = 240
+  if (valid.length <= MAX_POINTS) {
+    return valid
+  }
+
+  const step = Math.ceil(
+    valid.length / MAX_POINTS,
+  )
+
+  const reduced = valid.filter(
+    (_, index) =>
+      index % step === 0 ||
+      index === valid.length - 1,
+  )
+
+  return reduced
+}
+
+
 function azoresLocalDateTime(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Atlantic/Azores',
@@ -817,6 +890,69 @@ export default {
           },
           500,
         )
+      }
+    }
+
+    if (url.pathname === '/api/live/tracks' && request.method === 'GET') {
+      try {
+        const requestedMinutes = Number(
+          url.searchParams.get('minutes') ?? '20',
+        )
+
+        const minutes = Math.min(
+          60,
+          Math.max(
+            5,
+            Number.isFinite(requestedMinutes)
+              ? requestedMinutes
+              : 20,
+          ),
+        )
+
+        // Só pedimos histórico dos barcos que continuam ativos no Live.
+        // Assim o rasto desaparece quando a posição atual deixa de ser recente.
+        const boats = await getActiveBoats(env)
+
+        const tracks = await Promise.all(
+          boats.map(async (boat) => {
+            const positions =
+              await getRecentTrackForDevice(
+                env,
+                boat.id,
+                minutes,
+              )
+
+            return {
+              deviceId: boat.id,
+              boatName: boat.name,
+              positions: positions.map(
+                (position) => ({
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  fixTime:
+                    position.fixTime ??
+                    position.deviceTime ??
+                    position.serverTime ??
+                    null,
+                }),
+              ),
+            }
+          }),
+        )
+
+        return json({
+          ok: true,
+          minutes,
+          tracks,
+        })
+      } catch (error) {
+        return json({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao carregar rastos globais',
+        }, 500)
       }
     }
 

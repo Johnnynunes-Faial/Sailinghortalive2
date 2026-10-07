@@ -1,25 +1,16 @@
-# Sailing Horta Live 2 — v0.13
+# Sailing Horta Live 2 — v0.14
 
-Duas melhorias no mapa e meteorologia.
+## Rasto no Live Global / Modo Geral
 
-## Windy acompanha a área do mapa
-Ao ativar “Vento (Windy)”, o site lê o centro e o zoom atuais do mapa principal.
-O Windy abre nessa mesma zona em vez de abrir sempre no Faial.
+No Modo Geral, a camada **Rasto dos barcos (20 min)** passa a estar disponível.
 
-Exemplo:
-- selecionas uma regata em São Miguel;
-- o mapa enquadra São Miguel;
-- ativas Windy;
-- o Windy abre centrado em São Miguel.
+Comportamento:
+- mostra apenas os últimos 20 minutos de cada barco atualmente ativo;
+- cada rasto usa a mesma cor do respetivo barco;
+- atualiza a cada 30 segundos;
+- quando um barco deixa de ter posição recente e desaparece do Live, o rasto também desaparece;
+- limita automaticamente o número de pontos por barco para evitar linhas demasiado pesadas.
 
-## Mapa marítimo
-Todos os mapas Leaflet passam a usar:
-- OpenStreetMap como cartografia base;
-- OpenSeaMap por cima, com informação náutica/seamarks.
+Nas regatas Live selecionadas mantém-se o comportamento anterior: rasto dos últimos 2 NM, atualizado a cada 20 segundos.
 
-Foi aplicado a:
-- Live;
-- Replay;
-- editor de percurso do Admin.
-
-O OpenSeaMap é uma camada marítima sobre o mapa base, por isso mantemos estradas/costa/terra e acrescentamos a informação náutica.
+A opção fica em **Camadas**.

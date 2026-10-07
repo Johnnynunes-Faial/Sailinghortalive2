@@ -229,7 +229,7 @@ function PublicLiveView() {
   const [weatherLoading, setWeatherLoading] = useState(false)
 
   const tracksAvailable =
-    selectedEventId !== 'general' &&
+    selectedEventId === 'general' ||
     events.some(
       (event) =>
         event.id === selectedEventId &&
@@ -507,8 +507,13 @@ function PublicLiveView() {
 
     async function loadTracks() {
       try {
+        const trackUrl =
+          selectedEventId === 'general'
+            ? '/api/live/tracks?minutes=20'
+            : `/api/events/${encodeURIComponent(selectedEventId)}/tracks?distance=2`
+
         const response = await fetch(
-          `/api/events/${encodeURIComponent(selectedEventId)}/tracks?distance=2`,
+          trackUrl,
           { cache: 'no-store' },
         )
 
@@ -530,7 +535,15 @@ function PublicLiveView() {
     }
 
     loadTracks()
-    const timer = window.setInterval(loadTracks, 20000)
+    const trackRefreshMs =
+      selectedEventId === 'general'
+        ? 30000
+        : 20000
+
+    const timer = window.setInterval(
+      loadTracks,
+      trackRefreshMs,
+    )
 
     return () => {
       active = false
@@ -978,11 +991,17 @@ function PublicLiveView() {
               }
               title={
                 tracksAvailable
-                  ? 'Mostrar os últimos 2 NM de rasto dos barcos'
-                  : 'Disponível quando estiver selecionada uma regata em direto'
+                  ? selectedEventId === 'general'
+                    ? 'Mostrar os últimos 20 minutos de rasto dos barcos ativos'
+                    : 'Mostrar os últimos 2 NM de rasto dos barcos'
+                  : 'Disponível no Modo Geral ou quando estiver selecionada uma regata em direto'
               }
             >
-              <span>Rasto dos barcos</span>
+              <span>
+                {selectedEventId === 'general'
+                  ? 'Rasto dos barcos (20 min)'
+                  : 'Rasto dos barcos'}
+              </span>
               <input
                 type="checkbox"
                 checked={
