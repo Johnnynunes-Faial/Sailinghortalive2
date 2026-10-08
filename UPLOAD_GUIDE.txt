@@ -1,12 +1,16 @@
-v0.14 — RASTO NO LIVE GLOBAL
+v0.15 — CORES DOS BARCOS
 
-Carregar por cima da v0.13 como habitual.
+Carrega esta versão por cima da v0.14 como habitual.
+
+Não é necessário executar SQL.
 
 TESTE
-1. Abrir o Live em Modo Geral.
-2. Abrir Camadas.
-3. Ativar “Rasto dos barcos (20 min)”.
-4. Confirmar que cada barco ativo mostra o seu rasto recente na própria cor.
-5. Selecionar uma regata Live e confirmar que o rasto da regata continua a usar os últimos 2 NM.
+1. Abrir /admin.
+2. Procurar o cartão "Barcos · cores".
+3. Escolher uma cor para um barco.
+4. Abrir o Live.
+5. Confirmar que o ícone e o rasto usam essa cor.
+6. Abrir um Replay que inclua esse barco e confirmar a mesma cor.
+7. No Admin, clicar "Automática" para voltar à cor anterior calculada pelo ID.
 
-Não é necessário alterar D1 nem Cloudflare manualmente.
+A configuração é global e fica guardada na D1.

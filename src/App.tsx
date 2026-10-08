@@ -87,6 +87,7 @@ type AdminDevice = {
   uniqueId: string
   status: string
   lastUpdate: string | null
+  color?: string | null
 }
 
 type LibraryBuoy = {
@@ -331,6 +332,31 @@ function PublicLiveView() {
       setWeatherLoading(false)
     }
   }
+
+  useEffect(() => {
+    let active = true
+
+    const loadColors = async () => {
+      await refreshBoatColors()
+
+      if (active) {
+        setBoats((current) => [...current])
+        setTracks((current) => [...current])
+      }
+    }
+
+    loadColors()
+
+    const timer = window.setInterval(
+      loadColors,
+      60 * 1000,
+    )
+
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [])
 
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
@@ -1165,6 +1191,10 @@ function ReplayView() {
 
   const lastAnimationTsRef =
     useRef<number | null>(null)
+
+  useEffect(() => {
+    refreshBoatColors()
+  }, [selectedEventId])
 
   useEffect(() => {
     fetch('/api/events', {
@@ -2475,6 +2505,11 @@ function AdminView() {
         </section>
 
         <section className="admin-card">
+          <h2>Barcos · cores</h2>
+          <BoatColorsAdmin />
+        </section>
+
+        <section className="admin-card">
           <h2>Regatas</h2>
 
           <div className="event-list">
@@ -3302,6 +3337,208 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
   )
 }
 
+
+function BoatColorsAdmin() {
+  const [devices, setDevices] = useState<AdminDevice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<number | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        '/admin/api/devices',
+        { cache: 'no-store' },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Não foi possível carregar os barcos.',
+        )
+      }
+
+      setDevices(data.devices ?? [])
+    } catch (error) {
+      setDevices([])
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar barcos.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function saveColor(
+    deviceId: number,
+    color: string | null,
+  ) {
+    setSavingId(deviceId)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        `/admin/api/devices/${deviceId}/color`,
+        {
+          method: 'PUT',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ color }),
+        },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Erro ao guardar a cor.',
+        )
+      }
+
+      setDevices((current) =>
+        current.map((device) =>
+          device.id === deviceId
+            ? {
+                ...device,
+                color: data.color ?? null,
+              }
+            : device,
+        ),
+      )
+
+      await refreshBoatColors()
+
+      setMessage(
+        color
+          ? 'Cor do barco guardada.'
+          : 'Cor automática reposta.',
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao guardar a cor.',
+      )
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="modal-message">
+        A carregar barcos...
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="boat-colors-help">
+        A cor escolhida é global: Live Geral, regatas,
+        rastos, Replay e histórico. Se deixares em
+        automático, mantém-se a cor calculada pelo ID
+        Traccar.
+      </div>
+
+      <div className="boat-color-list">
+        {devices.length === 0 ? (
+          <div className="empty-state">
+            Nenhum barco recebido do Traccar.
+          </div>
+        ) : (
+          devices.map((device) => {
+            const effectiveColor =
+              device.color ??
+              boatColor(device.id)
+
+            return (
+              <div
+                key={device.id}
+                className="boat-color-row"
+              >
+                <div className="boat-color-device">
+                  <span
+                    className="boat-color-dot"
+                    style={{
+                      backgroundColor:
+                        effectiveColor,
+                    }}
+                  />
+
+                  <div className="device-info">
+                    <strong>{device.name}</strong>
+                    <span>
+                      ID Traccar: {device.id}
+                      {device.color
+                        ? ' · Cor manual'
+                        : ' · Automática'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="boat-color-actions">
+                  <input
+                    type="color"
+                    className="boat-color-picker"
+                    value={effectiveColor}
+                    disabled={
+                      savingId === device.id
+                    }
+                    aria-label={`Cor de ${device.name}`}
+                    onChange={(event) =>
+                      saveColor(
+                        device.id,
+                        event.target.value,
+                      )
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    className="secondary-button boat-auto-color-button"
+                    disabled={
+                      savingId === device.id ||
+                      !device.color
+                    }
+                    onClick={() =>
+                      saveColor(
+                        device.id,
+                        null,
+                      )
+                    }
+                  >
+                    Automática
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {message && (
+        <div className="inline-message">
+          {message}
+        </div>
+      )}
+    </>
+  )
+}
+
 function CourseEditor({ event }: { event: EventItem }) {
   const mapElRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -3329,6 +3566,10 @@ function CourseEditor({ event }: { event: EventItem }) {
   const [libraryName, setLibraryName] = useState('')
   const [libraryLat, setLibraryLat] = useState('')
   const [libraryLon, setLibraryLon] = useState('')
+
+  useEffect(() => {
+    refreshBoatColors()
+  }, [event.id])
 
   useEffect(() => {
     Promise.all([
@@ -4304,8 +4545,48 @@ function makeCourseIcon(point: CoursePoint, index: number) {
   })
 }
 
+let BOAT_COLOR_OVERRIDES: Record<number, string> = {}
+
 function boatColor(id: number) {
-  return BOAT_COLORS[Math.abs(id) % BOAT_COLORS.length]
+  return (
+    BOAT_COLOR_OVERRIDES[id] ??
+    BOAT_COLORS[Math.abs(id) % BOAT_COLORS.length]
+  )
+}
+
+async function refreshBoatColors() {
+  try {
+    const response = await fetch('/api/boat-colors', {
+      cache: 'no-store',
+    })
+
+    if (!response.ok) return
+
+    const data = await response.json() as {
+      colors?: Array<{
+        deviceId: number
+        color: string
+      }>
+    }
+
+    const next: Record<number, string> = {}
+
+    for (const item of data.colors ?? []) {
+      const deviceId = Number(item.deviceId)
+      const color = String(item.color ?? '')
+
+      if (
+        Number.isFinite(deviceId) &&
+        /^#[0-9a-fA-F]{6}$/.test(color)
+      ) {
+        next[deviceId] = color
+      }
+    }
+
+    BOAT_COLOR_OVERRIDES = next
+  } catch {
+    // Mantém as cores já carregadas / automáticas.
+  }
 }
 
 function makeLineEndpointIcon(

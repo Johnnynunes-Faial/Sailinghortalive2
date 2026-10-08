@@ -131,6 +131,20 @@ async function ensureCourseLinesTable(env: Env) {
 }
 
 
+async function ensureBoatSettingsTable(
+  env: Env,
+) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS boat_settings (
+      traccar_device_id INTEGER PRIMARY KEY,
+      color TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run()
+}
+
+
 async function ensureReplayTrackCacheTable(
   env: Env,
 ) {
@@ -522,6 +536,46 @@ export default {
 
     if (url.pathname === '/api/health') {
       return json({ ok: true, service: 'sailinghortalive' })
+    }
+
+    if (url.pathname === '/api/boat-colors' && request.method === 'GET') {
+      try {
+        await ensureBoatSettingsTable(env)
+
+        const result = await env.DB.prepare(`
+          SELECT traccar_device_id, color
+          FROM boat_settings
+          WHERE color IS NOT NULL
+          ORDER BY traccar_device_id ASC
+        `).all<{
+          traccar_device_id: number
+          color: string | null
+        }>()
+
+        const colors = (result.results ?? [])
+          .filter(
+            (row) =>
+              typeof row.color === 'string' &&
+              /^#[0-9a-fA-F]{6}$/.test(row.color),
+          )
+          .map((row) => ({
+            deviceId: Number(row.traccar_device_id),
+            color: row.color,
+          }))
+
+        return json({
+          ok: true,
+          colors,
+        })
+      } catch (error) {
+        return json({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao carregar cores dos barcos',
+        }, 500)
+      }
     }
 
     if (url.pathname === '/api/events' && request.method === 'GET') {
@@ -1156,6 +1210,23 @@ export default {
 
         const devices = (await response.json()) as TraccarDevice[]
 
+        await ensureBoatSettingsTable(env)
+
+        const settings = await env.DB.prepare(`
+          SELECT traccar_device_id, color
+          FROM boat_settings
+        `).all<{
+          traccar_device_id: number
+          color: string | null
+        }>()
+
+        const colorByDevice = new Map(
+          (settings.results ?? []).map((row) => [
+            Number(row.traccar_device_id),
+            row.color,
+          ]),
+        )
+
         const cleanDevices = devices
           .map((device) => ({
             id: device.id,
@@ -1163,12 +1234,96 @@ export default {
             uniqueId: device.uniqueId,
             status: device.status ?? 'unknown',
             lastUpdate: device.lastUpdate ?? null,
+            color: colorByDevice.get(device.id) ?? null,
           }))
           .sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }))
 
         return json({ ok: true, devices: cleanDevices })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar barcos' }, 500)
+      }
+    }
+
+    const deviceColorMatch = url.pathname.match(
+      /^\/admin\/api\/devices\/(\d+)\/color$/,
+    )
+
+    if (deviceColorMatch && request.method === 'PUT') {
+      try {
+        const deviceId = Number(deviceColorMatch[1])
+
+        if (!Number.isInteger(deviceId) || deviceId <= 0) {
+          return json(
+            { ok: false, error: 'ID de barco inválido' },
+            400,
+          )
+        }
+
+        const body = await request.json() as {
+          color?: string | null
+        }
+
+        const color =
+          body.color == null ||
+          body.color === ''
+            ? null
+            : String(body.color).trim()
+
+        if (
+          color !== null &&
+          !/^#[0-9a-fA-F]{6}$/.test(color)
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Cor inválida. Usa o formato #RRGGBB.',
+            },
+            400,
+          )
+        }
+
+        await ensureBoatSettingsTable(env)
+
+        if (color === null) {
+          await env.DB.prepare(`
+            DELETE FROM boat_settings
+            WHERE traccar_device_id = ?
+          `).bind(deviceId).run()
+        } else {
+          await env.DB.prepare(`
+            INSERT INTO boat_settings (
+              traccar_device_id,
+              color,
+              updated_at
+            )
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(traccar_device_id)
+            DO UPDATE SET
+              color = excluded.color,
+              updated_at = CURRENT_TIMESTAMP
+          `).bind(
+            deviceId,
+            color.toLowerCase(),
+          ).run()
+        }
+
+        return json({
+          ok: true,
+          deviceId,
+          color:
+            color === null
+              ? null
+              : color.toLowerCase(),
+        })
+      } catch (error) {
+        return json({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao guardar a cor do barco',
+        }, 500)
       }
     }
 

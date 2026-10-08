@@ -2001,3 +2001,78 @@ button {
     font-size: 11px;
   }
 }
+
+
+/* v0.15 — cores globais dos barcos */
+.boat-colors-help {
+  margin-bottom: 14px;
+  color: #54616b;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.boat-color-list {
+  display: grid;
+  gap: 8px;
+}
+
+.boat-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid #d9e0e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.boat-color-device,
+.boat-color-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.boat-color-device {
+  min-width: 0;
+}
+
+.boat-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  flex: 0 0 auto;
+}
+
+.boat-color-picker {
+  width: 42px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid #c7d0d8;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.boat-color-picker:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.boat-auto-color-button {
+  min-width: 94px;
+}
+
+@media (max-width: 640px) {
+  .boat-color-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .boat-color-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
