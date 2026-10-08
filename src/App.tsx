@@ -2505,11 +2505,6 @@ function AdminView() {
         </section>
 
         <section className="admin-card">
-          <h2>Barcos · cores</h2>
-          <BoatColorsAdmin />
-        </section>
-
-        <section className="admin-card">
           <h2>Regatas</h2>
 
           <div className="event-list">
@@ -2536,6 +2531,11 @@ function AdminView() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="admin-card">
+          <h2>Barcos · cores</h2>
+          <BoatColorsAdmin />
         </section>
       </div>
 
@@ -3340,11 +3340,15 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
 
 function BoatColorsAdmin() {
   const [devices, setDevices] = useState<AdminDevice[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
   async function load() {
+    if (loaded) return
+
     setLoading(true)
     setMessage(null)
 
@@ -3364,6 +3368,7 @@ function BoatColorsAdmin() {
       }
 
       setDevices(data.devices ?? [])
+      setLoaded(true)
     } catch (error) {
       setDevices([])
       setMessage(
@@ -3376,9 +3381,14 @@ function BoatColorsAdmin() {
     }
   }
 
-  useEffect(() => {
-    load()
-  }, [])
+  async function toggleOpen() {
+    const next = !open
+    setOpen(next)
+
+    if (next && !loaded) {
+      await load()
+    }
+  }
 
   async function saveColor(
     deviceId: number,
@@ -3437,107 +3447,136 @@ function BoatColorsAdmin() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="modal-message">
-        A carregar barcos...
-      </div>
-    )
-  }
-
   return (
     <>
-      <div className="boat-colors-help">
-        A cor escolhida é global: Live Geral, regatas,
-        rastos, Replay e histórico. Se deixares em
-        automático, mantém-se a cor calculada pelo ID
-        Traccar.
-      </div>
+      <button
+        type="button"
+        className="boat-colors-toggle"
+        onClick={toggleOpen}
+        aria-expanded={open}
+      >
+        <span>
+          {open
+            ? 'Ocultar cores dos barcos'
+            : 'Gerir cores dos barcos'}
+        </span>
 
-      <div className="boat-color-list">
-        {devices.length === 0 ? (
-          <div className="empty-state">
-            Nenhum barco recebido do Traccar.
+        <span
+          className={
+            open
+              ? 'boat-colors-chevron open'
+              : 'boat-colors-chevron'
+          }
+          aria-hidden="true"
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="boat-colors-panel">
+          <div className="boat-colors-help">
+            A cor escolhida é global: Live Geral,
+            regatas, rastos, Replay e histórico.
+            Se deixares em automático, mantém-se
+            a cor calculada pelo ID Traccar.
           </div>
-        ) : (
-          devices.map((device) => {
-            const effectiveColor =
-              device.color ??
-              boatColor(device.id)
 
-            return (
-              <div
-                key={device.id}
-                className="boat-color-row"
-              >
-                <div className="boat-color-device">
-                  <span
-                    className="boat-color-dot"
-                    style={{
-                      backgroundColor:
-                        effectiveColor,
-                    }}
-                  />
-
-                  <div className="device-info">
-                    <strong>{device.name}</strong>
-                    <span>
-                      ID Traccar: {device.id}
-                      {device.color
-                        ? ' · Cor manual'
-                        : ' · Automática'}
-                    </span>
+          {loading ? (
+            <div className="modal-message">
+              A carregar barcos...
+            </div>
+          ) : (
+            <>
+              <div className="boat-color-list">
+                {devices.length === 0 ? (
+                  <div className="empty-state">
+                    Nenhum barco recebido do Traccar.
                   </div>
-                </div>
+                ) : (
+                  devices.map((device) => {
+                    const effectiveColor =
+                      device.color ??
+                      boatColor(device.id)
 
-                <div className="boat-color-actions">
-                  <input
-                    type="color"
-                    className="boat-color-picker"
-                    value={effectiveColor}
-                    disabled={
-                      savingId === device.id
-                    }
-                    aria-label={`Cor de ${device.name}`}
-                    onChange={(event) =>
-                      saveColor(
-                        device.id,
-                        event.target.value,
-                      )
-                    }
-                  />
+                    return (
+                      <div
+                        key={device.id}
+                        className="boat-color-row"
+                      >
+                        <div className="boat-color-device">
+                          <span
+                            className="boat-color-dot"
+                            style={{
+                              backgroundColor:
+                                effectiveColor,
+                            }}
+                          />
 
-                  <button
-                    type="button"
-                    className="secondary-button boat-auto-color-button"
-                    disabled={
-                      savingId === device.id ||
-                      !device.color
-                    }
-                    onClick={() =>
-                      saveColor(
-                        device.id,
-                        null,
-                      )
-                    }
-                  >
-                    Automática
-                  </button>
-                </div>
+                          <div className="device-info">
+                            <strong>{device.name}</strong>
+                            <span>
+                              ID Traccar: {device.id}
+                              {device.color
+                                ? ' · Cor manual'
+                                : ' · Automática'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="boat-color-actions">
+                          <input
+                            type="color"
+                            className="boat-color-picker"
+                            value={effectiveColor}
+                            disabled={
+                              savingId === device.id
+                            }
+                            aria-label={`Cor de ${device.name}`}
+                            onChange={(event) =>
+                              saveColor(
+                                device.id,
+                                event.target.value,
+                              )
+                            }
+                          />
+
+                          <button
+                            type="button"
+                            className="secondary-button boat-auto-color-button"
+                            disabled={
+                              savingId === device.id ||
+                              !device.color
+                            }
+                            onClick={() =>
+                              saveColor(
+                                device.id,
+                                null,
+                              )
+                            }
+                          >
+                            Automática
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
-            )
-          })
-        )}
-      </div>
 
-      {message && (
-        <div className="inline-message">
-          {message}
+              {message && (
+                <div className="inline-message">
+                  {message}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </>
   )
 }
+
 
 function CourseEditor({ event }: { event: EventItem }) {
   const mapElRef = useRef<HTMLDivElement | null>(null)

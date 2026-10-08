@@ -1,16 +1,12 @@
-v0.15 — CORES DOS BARCOS
+v0.15.1 — CORES RECOLHIDAS NO ADMIN
 
-Carrega esta versão por cima da v0.14 como habitual.
+Carrega por cima da v0.15 como habitual.
 
-Não é necessário executar SQL.
+No Admin:
+1. Nova regata continua no topo.
+2. Regatas aparece logo a seguir.
+3. Barcos · cores fica no fundo.
+4. A lista fica fechada por defeito.
+5. Só abre e carrega os barcos ao tocar em “Gerir cores dos barcos”.
 
-TESTE
-1. Abrir /admin.
-2. Procurar o cartão "Barcos · cores".
-3. Escolher uma cor para um barco.
-4. Abrir o Live.
-5. Confirmar que o ícone e o rasto usam essa cor.
-6. Abrir um Replay que inclua esse barco e confirmar a mesma cor.
-7. No Admin, clicar "Automática" para voltar à cor anterior calculada pelo ID.
-
-A configuração é global e fica guardada na D1.
+No telemóvel o fluxo de edição das regatas mantém-se praticamente igual ao anterior.

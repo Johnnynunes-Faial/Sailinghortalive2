@@ -1,28 +1,13 @@
-# Sailing Horta Live 2 — v0.15
+# Sailing Horta Live 2 — v0.15.1
 
-## Cores globais dos barcos
+Pequena alteração de interface no Admin.
 
-Foi adicionada uma configuração global de cor por dispositivo Traccar.
+## O que mudou
+- a prioridade volta a ser criação e edição de regatas;
+- a secção **Barcos · cores** foi movida para o fundo do Admin;
+- a lista de barcos fica **fechada por defeito**;
+- os barcos só são carregados quando se abre “Gerir cores dos barcos”.
 
-No Admin existe agora o cartão:
+Isto evita uma lista grande no telemóvel e reduz trabalho desnecessário do Admin quando as cores não estão a ser editadas.
 
-**Barcos · cores**
-
-Para cada barco:
-- pode escolher-se uma cor manual com o seletor;
-- pode voltar-se a **Automática** a qualquer momento;
-- a escolha fica guardada na D1 pelo `traccar_device_id`.
-
-A cor manual passa a ser usada em:
-- Live Geral;
-- Live de uma regata;
-- rastos;
-- Replay;
-- rastos históricos no editor de percurso.
-
-Se não existir configuração manual, mantém-se exatamente o algoritmo anterior de cor automática baseado no ID do dispositivo.
-
-## Base de dados
-
-A tabela `boat_settings` é criada automaticamente pelo Worker na primeira utilização.
-Não é necessário executar SQL manualmente.
+Mantém toda a funcionalidade da v0.15.

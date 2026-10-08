@@ -2076,3 +2076,45 @@ button {
     justify-content: flex-end;
   }
 }
+
+
+/* v0.15.1 — painel de cores recolhido */
+.boat-colors-toggle {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfd8df;
+  border-radius: 10px;
+  background: #f7f9fa;
+  color: #1b2a35;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boat-colors-toggle:hover {
+  background: #f1f5f7;
+}
+
+.boat-colors-chevron {
+  transition: transform 0.18s ease;
+}
+
+.boat-colors-chevron.open {
+  transform: rotate(180deg);
+}
+
+.boat-colors-panel {
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .boat-colors-toggle {
+    min-height: 48px;
+    padding: 12px;
+  }
+}
