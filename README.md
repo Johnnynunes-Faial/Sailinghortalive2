@@ -1,18 +1,9 @@
-# Sailing Horta Live 2 — v0.18.0
+# Sailing Horta Live 2 — v0.19.0
 
-## Rondagem das bóias
+## Cores das linhas de largada e chegada
 
-Foi acrescentada indicação de rondagem por evento/percurso.
-
-- Cada bóia pode ficar sem indicação, Bombordo ou Estibordo.
-- Bombordo aparece com seta curva vermelha.
-- Estibordo aparece com seta curva verde.
-- A opção pode ser escolhida ao criar uma nova bóia.
-- Pode ser alterada posteriormente em "Marcas do percurso", inclusive no dia da regata.
-- A mesma bóia da biblioteca pode ter rondagens diferentes em regatas diferentes.
-- Waypoints não têm rondagem.
-- A indicação aparece no Editor Admin, Live da regata e Replay.
-- Percursos antigos continuam válidos e começam com "Sem indicação".
-
-A coluna `rounding_side` é criada automaticamente na tabela `course_points`;
-não é necessário executar SQL manualmente.
+- Linha de largada: verde e tracejada.
+- Linha de chegada: vermelha e contínua.
+- Mantém os tooltips "Linha de largada" e "Linha de chegada".
+- Aplicado no Live público, Replay e Editor Admin.
+- Mantém todas as funcionalidades da v0.18, incluindo rondagem das bóias.

@@ -1,16 +1,15 @@
-v0.18.0 — RONDAGEM DAS BÓIAS
+v0.19.0 — CORES DAS LINHAS
 
 Publicar como nas versões anteriores.
 
-IMPORTANTE NO GITHUB PELO BROWSER:
-- ficheiros de src/ -> pasta src/ do repositório
-- ficheiros de public/ -> pasta public/
+No GitHub pelo browser:
+- src/ -> pasta src/
+- public/ -> pasta public/
 - ficheiros da raiz -> raiz
 
-Não é necessário executar SQL no Cloudflare D1.
-No primeiro pedido de percurso, o Worker acrescenta automaticamente
-a coluna rounding_side à tabela course_points.
+Alteração visual:
+- Largada = verde tracejado
+- Chegada = vermelho contínuo
 
-As duas regatas já programadas e os percursos existentes são preservados.
-Abre cada regata -> Percurso -> "Marcas do percurso" e escolhe a rondagem
-das bóias que quiseres alterar.
+Aplica-se a Admin, Live e Replay.
+Não existem alterações à base de dados.

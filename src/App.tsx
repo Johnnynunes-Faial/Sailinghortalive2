@@ -729,9 +729,16 @@ function PublicLiveView() {
               [line.b_latitude, line.b_longitude],
             ],
             {
+              color:
+                line.line_type === 'start'
+                  ? '#16a34a'
+                  : '#dc2626',
               weight: 5,
               opacity: 0.95,
-              dashArray: line.line_type === 'start' ? '10 5' : undefined,
+              dashArray:
+                line.line_type === 'start'
+                  ? '10 5'
+                  : undefined,
             },
           )
             .addTo(layer)
@@ -1404,6 +1411,10 @@ function ReplayView() {
           ],
         ],
         {
+          color:
+            line.line_type === 'start'
+              ? '#16a34a'
+              : '#dc2626',
           weight: 5,
           opacity: 0.95,
           dashArray:
@@ -4056,11 +4067,24 @@ function CourseEditor({ event }: { event: EventItem }) {
           [line.b_latitude, line.b_longitude],
         ],
         {
+          color:
+            line.line_type === 'start'
+              ? '#16a34a'
+              : '#dc2626',
           weight: 5,
           opacity: 0.95,
-          dashArray: line.line_type === 'start' ? '10 5' : undefined,
+          dashArray:
+            line.line_type === 'start'
+              ? '10 5'
+              : undefined,
         },
-      ).addTo(layer)
+      )
+        .addTo(layer)
+        .bindTooltip(
+          line.line_type === 'start'
+            ? 'Linha de largada'
+            : 'Linha de chegada',
+        )
 
       const endpointA = L.marker(
         [line.a_latitude, line.a_longitude],
