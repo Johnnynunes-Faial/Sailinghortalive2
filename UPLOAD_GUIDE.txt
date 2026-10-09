@@ -1,4 +1,4 @@
-v0.19.0 — CORES DAS LINHAS
+v0.20.0 — MEDIÇÃO LIVE
 
 Publicar como nas versões anteriores.
 
@@ -7,9 +7,12 @@ No GitHub pelo browser:
 - public/ -> pasta public/
 - ficheiros da raiz -> raiz
 
-Alteração visual:
-- Largada = verde tracejado
-- Chegada = vermelho contínuo
+Utilização:
+1. Clicar num barco.
+2. Clicar "Medir distância".
+3. Clicar num ponto do mapa OU noutro barco.
+4. Ver distância NM, rumo e ETA à velocidade atual.
+5. "Novo destino" ou "Limpar".
 
-Aplica-se a Admin, Live e Replay.
-Não existem alterações à base de dados.
+Não há alterações à base de dados.
+Não há novos pedidos periódicos ao servidor.

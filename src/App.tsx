@@ -203,6 +203,69 @@ function App() {
   return <PublicLiveView />
 }
 
+type LiveMeasurementTarget = {
+  latitude: number
+  longitude: number
+  label: string
+  boatId?: number
+}
+
+function bearingDegrees(
+  fromLat: number,
+  fromLon: number,
+  toLat: number,
+  toLon: number,
+) {
+  const toRad = (value: number) =>
+    (value * Math.PI) / 180
+
+  const phi1 = toRad(fromLat)
+  const phi2 = toRad(toLat)
+  const deltaLon = toRad(toLon - fromLon)
+
+  const y =
+    Math.sin(deltaLon) * Math.cos(phi2)
+
+  const x =
+    Math.cos(phi1) * Math.sin(phi2) -
+    Math.sin(phi1) *
+      Math.cos(phi2) *
+      Math.cos(deltaLon)
+
+  return (
+    (Math.atan2(y, x) * 180) / Math.PI +
+    360
+  ) % 360
+}
+
+function formatEtaHours(hours: number) {
+  if (
+    !Number.isFinite(hours) ||
+    hours < 0
+  ) {
+    return '—'
+  }
+
+  const totalMinutes =
+    Math.round(hours * 60)
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`
+  }
+
+  const wholeHours =
+    Math.floor(totalMinutes / 60)
+
+  const minutes =
+    totalMinutes % 60
+
+  if (minutes === 0) {
+    return `${wholeHours} h`
+  }
+
+  return `${wholeHours} h ${minutes} min`
+}
+
 function PublicLiveView() {
   const mapElementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -210,6 +273,7 @@ function PublicLiveView() {
   const liveBoatCourseRef = useRef<Map<number, number>>(new Map())
   const courseLayerRef = useRef<L.LayerGroup | null>(null)
   const trackLayerRef = useRef<L.LayerGroup | null>(null)
+  const measurementLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
   const weatherMoveTimerRef = useRef<number | null>(null)
   const weatherLastKeyRef = useRef('')
@@ -234,6 +298,16 @@ function PublicLiveView() {
   const [tracks, setTracks] = useState<BoatTrack[]>([])
   const [weather, setWeather] = useState<MapWeather | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
+  const [selectedBoatId, setSelectedBoatId] = useState<number | null>(null)
+  const [measureMode, setMeasureMode] = useState(false)
+  const [measurementTarget, setMeasurementTarget] =
+    useState<LiveMeasurementTarget | null>(null)
+
+  const selectedBoat =
+    boats.find(
+      (boat) =>
+        boat.id === selectedBoatId,
+    ) ?? null
 
   const tracksAvailable =
     selectedEventId === 'general' ||
@@ -378,6 +452,8 @@ function PublicLiveView() {
     mapRef.current = map
     courseLayerRef.current = L.layerGroup().addTo(map)
     trackLayerRef.current = L.layerGroup().addTo(map)
+    measurementLayerRef.current =
+      L.layerGroup().addTo(map)
 
     const initialCenter =
       map.getCenter()
@@ -497,6 +573,40 @@ function PublicLiveView() {
   }, [selectedEventId])
 
   useEffect(() => {
+    const map = mapRef.current
+
+    if (
+      !map ||
+      !measureMode ||
+      !selectedBoat?.position
+    ) {
+      return
+    }
+
+    const onMeasureClick = (
+      event: L.LeafletMouseEvent,
+    ) => {
+      setMeasurementTarget({
+        latitude: event.latlng.lat,
+        longitude: event.latlng.lng,
+        label: 'Ponto escolhido',
+      })
+      setMeasureMode(false)
+    }
+
+    map.on('click', onMeasureClick)
+
+    return () => {
+      map.off('click', onMeasureClick)
+    }
+  }, [
+    measureMode,
+    selectedBoatId,
+    selectedBoat?.position?.latitude,
+    selectedBoat?.position?.longitude,
+  ])
+
+  useEffect(() => {
     let active = true
 
     async function loadLive() {
@@ -604,6 +714,20 @@ function PublicLiveView() {
   }, [tracksAvailable])
 
   useEffect(() => {
+    if (
+      selectedBoatId !== null &&
+      !boats.some(
+        (boat) =>
+          boat.id === selectedBoatId,
+      )
+    ) {
+      setSelectedBoatId(null)
+      setMeasureMode(false)
+      setMeasurementTarget(null)
+    }
+  }, [boats, selectedBoatId])
+
+  useEffect(() => {
     const map = mapRef.current
     if (!map) return
 
@@ -686,6 +810,32 @@ function PublicLiveView() {
           }
         }
 
+        marker.off('click')
+        marker.on('click', (event) => {
+          L.DomEvent.stopPropagation(event)
+
+          if (
+            measureMode &&
+            selectedBoatId !== null &&
+            selectedBoatId !== boat.id
+          ) {
+            setMeasurementTarget({
+              latitude:
+                boat.position!.latitude,
+              longitude:
+                boat.position!.longitude,
+              label: boat.name,
+              boatId: boat.id,
+            })
+            setMeasureMode(false)
+            return
+          }
+
+          setSelectedBoatId(boat.id)
+          setMeasurementTarget(null)
+          setMeasureMode(false)
+        })
+
         marker.setPopupContent(popup)
       } else {
         const newMarker = L.marker(
@@ -706,6 +856,31 @@ function PublicLiveView() {
             __showNames?: boolean
           }
         ).__showNames = showNames
+
+        newMarker.on('click', (event) => {
+          L.DomEvent.stopPropagation(event)
+
+          if (
+            measureMode &&
+            selectedBoatId !== null &&
+            selectedBoatId !== boat.id
+          ) {
+            setMeasurementTarget({
+              latitude:
+                boat.position!.latitude,
+              longitude:
+                boat.position!.longitude,
+              label: boat.name,
+              boatId: boat.id,
+            })
+            setMeasureMode(false)
+            return
+          }
+
+          setSelectedBoatId(boat.id)
+          setMeasurementTarget(null)
+          setMeasureMode(false)
+        })
 
         boatMarkersRef.current.set(
           boat.id,
@@ -865,6 +1040,81 @@ function PublicLiveView() {
     showNames,
     showTracks,
     tracks,
+    measureMode,
+    selectedBoatId,
+  ])
+
+  useEffect(() => {
+    const layer =
+      measurementLayerRef.current
+
+    if (!layer) return
+
+    layer.clearLayers()
+
+    if (
+      !selectedBoat?.position ||
+      !measurementTarget
+    ) {
+      return
+    }
+
+    const targetBoat =
+      measurementTarget.boatId !==
+      undefined
+        ? boats.find(
+            (boat) =>
+              boat.id ===
+              measurementTarget.boatId,
+          )
+        : null
+
+    const targetLat =
+      targetBoat?.position?.latitude ??
+      measurementTarget.latitude
+
+    const targetLon =
+      targetBoat?.position?.longitude ??
+      measurementTarget.longitude
+
+    const from: [number, number] = [
+      selectedBoat.position.latitude,
+      selectedBoat.position.longitude,
+    ]
+
+    const to: [number, number] = [
+      targetLat,
+      targetLon,
+    ]
+
+    L.polyline(
+      [from, to],
+      {
+        weight: 3,
+        opacity: 0.9,
+        dashArray: '8 7',
+      },
+    ).addTo(layer)
+
+    L.circleMarker(
+      to,
+      {
+        radius: 6,
+        weight: 2,
+        fillOpacity: 0.85,
+      },
+    )
+      .addTo(layer)
+      .bindTooltip(
+        measurementTarget.label,
+        {
+          direction: 'top',
+        },
+      )
+  }, [
+    boats,
+    selectedBoatId,
+    measurementTarget,
   ])
 
   function showAll() {
@@ -920,6 +1170,74 @@ function PublicLiveView() {
     setShowWind(visible)
   }
 
+
+  const liveMeasurement =
+    selectedBoat?.position &&
+    measurementTarget
+      ? (() => {
+          const targetBoat =
+            measurementTarget.boatId !==
+            undefined
+              ? boats.find(
+                  (boat) =>
+                    boat.id ===
+                    measurementTarget.boatId,
+                )
+              : null
+
+          const targetLat =
+            targetBoat?.position?.latitude ??
+            measurementTarget.latitude
+
+          const targetLon =
+            targetBoat?.position?.longitude ??
+            measurementTarget.longitude
+
+          const distanceMeters =
+            L.latLng(
+              selectedBoat.position.latitude,
+              selectedBoat.position.longitude,
+            ).distanceTo(
+              L.latLng(
+                targetLat,
+                targetLon,
+              ),
+            )
+
+          const distanceNm =
+            distanceMeters / 1852
+
+          const bearing =
+            bearingDegrees(
+              selectedBoat.position.latitude,
+              selectedBoat.position.longitude,
+              targetLat,
+              targetLon,
+            )
+
+          const speed =
+            Number(
+              selectedBoat.position.speed ?? 0,
+            )
+
+          const eta =
+            speed >= 0.5
+              ? formatEtaHours(
+                  distanceNm / speed,
+                )
+              : '—'
+
+          return {
+            distanceNm,
+            bearing,
+            speed,
+            eta,
+            label:
+              targetBoat?.name ??
+              measurementTarget.label,
+          }
+        })()
+      : null
 
   return (
     <main className="live-app">
@@ -1028,6 +1346,132 @@ function PublicLiveView() {
 
       <section className="map-container">
         <div ref={mapElementRef} className="map" />
+
+        {selectedBoat?.position && (
+          <div className="live-measure-panel">
+            <div className="live-measure-header">
+              <div>
+                <strong>
+                  {selectedBoat.name}
+                </strong>
+                <span>
+                  {Number(
+                    selectedBoat.position.speed ??
+                      0,
+                  ).toFixed(1)}
+                  {' '}kn
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="live-measure-close"
+                onClick={() => {
+                  setSelectedBoatId(null)
+                  setMeasureMode(false)
+                  setMeasurementTarget(null)
+                }}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            {!liveMeasurement ? (
+              <>
+                <button
+                  type="button"
+                  className={
+                    measureMode
+                      ? 'live-measure-button active'
+                      : 'live-measure-button'
+                  }
+                  onClick={() => {
+                    setMeasurementTarget(null)
+                    setMeasureMode(
+                      (current) => !current,
+                    )
+                  }}
+                >
+                  {measureMode
+                    ? 'Clica no destino…'
+                    : 'Medir distância'}
+                </button>
+
+                {measureMode && (
+                  <div className="live-measure-hint">
+                    Clica num ponto do mapa ou
+                    noutro barco.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="live-measure-results">
+                <div className="live-measure-destination">
+                  até {liveMeasurement.label}
+                </div>
+
+                <div className="live-measure-grid">
+                  <span>Distância</span>
+                  <strong>
+                    {liveMeasurement.distanceNm.toFixed(
+                      liveMeasurement.distanceNm <
+                        10
+                        ? 2
+                        : 1,
+                    )}
+                    {' '}NM
+                  </strong>
+
+                  <span>Rumo</span>
+                  <strong>
+                    {Math.round(
+                      liveMeasurement.bearing,
+                    )
+                      .toString()
+                      .padStart(3, '0')}
+                    °
+                  </strong>
+
+                  <span>Velocidade atual</span>
+                  <strong>
+                    {liveMeasurement.speed.toFixed(
+                      1,
+                    )}
+                    {' '}kn
+                  </strong>
+
+                  <span>ETA à velocidade atual</span>
+                  <strong>
+                    {liveMeasurement.eta}
+                  </strong>
+                </div>
+
+                <div className="live-measure-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMeasurementTarget(null)
+                      setMeasureMode(true)
+                    }}
+                  >
+                    Novo destino
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMeasurementTarget(null)
+                      setMeasureMode(false)
+                    }}
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {layersOpen && (
           <div className="layers-panel">

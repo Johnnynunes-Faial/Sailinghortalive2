@@ -2292,3 +2292,117 @@ button {
     min-width: 0;
   }
 }
+
+
+/* v0.20 — medição Live barco → ponto/barco */
+.live-measure-panel {
+  position: absolute;
+  left: 14px;
+  bottom: 46px;
+  z-index: 850;
+  width: min(300px, calc(100% - 28px));
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.live-measure-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.live-measure-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.live-measure-header strong {
+  font-size: 1rem;
+}
+
+.live-measure-header span {
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+.live-measure-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef1f4;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.live-measure-button {
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.live-measure-button.active {
+  outline: 2px solid currentColor;
+}
+
+.live-measure-hint {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  opacity: 0.72;
+}
+
+.live-measure-destination {
+  margin-bottom: 9px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.live-measure-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: baseline;
+  font-size: 0.86rem;
+}
+
+.live-measure-grid span {
+  opacity: 0.72;
+}
+
+.live-measure-grid strong {
+  text-align: right;
+}
+
+.live-measure-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.live-measure-actions button {
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .live-measure-panel {
+    left: 10px;
+    bottom: 42px;
+    width: calc(100% - 20px);
+    max-width: 340px;
+  }
+}
