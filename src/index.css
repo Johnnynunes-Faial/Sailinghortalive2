@@ -2208,3 +2208,26 @@ button {
     flex-direction: column;
   }
 }
+
+
+/* v0.16.1 — ações dos dispositivos desconhecidos */
+.unknown-device-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  color: #a92b2b;
+}
+
+@media (max-width: 640px) {
+  .unknown-device-actions {
+    width: 100%;
+  }
+
+  .unknown-device-actions .secondary-button {
+    flex: 1 1 auto;
+  }
+}

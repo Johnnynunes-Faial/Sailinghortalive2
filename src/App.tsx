@@ -3652,6 +3652,60 @@ function UnknownDevicesAdmin() {
     }
   }
 
+  async function removeDevice(
+    identifier: string,
+  ) {
+    const confirmed = window.confirm(
+      `Remover "${identifier}" da lista de desconhecidos?`,
+    )
+
+    if (!confirmed) return
+
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        '/admin/api/unknown-devices',
+        {
+          method: 'DELETE',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ identifier }),
+        },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Não foi possível remover o dispositivo.',
+        )
+      }
+
+      setItems((current) =>
+        current.filter(
+          (item) =>
+            item.identifier !== identifier,
+        ),
+      )
+
+      setMessage(
+        `Identificador ${identifier} removido da lista.`,
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao remover dispositivo.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <button
@@ -3719,13 +3773,26 @@ function UnknownDevicesAdmin() {
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => copyId(item.identifier)}
-                  >
-                    Copiar ID
-                  </button>
+                  <div className="unknown-device-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => copyId(item.identifier)}
+                    >
+                      Copiar ID
+                    </button>
+
+                    <button
+                      type="button"
+                      className="secondary-button danger-button"
+                      disabled={loading}
+                      onClick={() =>
+                        removeDevice(item.identifier)
+                      }
+                    >
+                      Remover da lista
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

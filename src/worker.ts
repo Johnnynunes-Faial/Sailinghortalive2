@@ -649,6 +649,100 @@ export default {
       }
     }
 
+    if (
+      url.pathname === '/admin/api/unknown-devices' &&
+      request.method === 'DELETE'
+    ) {
+      try {
+        const monitorUrl =
+          env.UNKNOWN_MONITOR_URL?.trim()
+
+        const monitorKey =
+          env.UNKNOWN_MONITOR_KEY?.trim()
+
+        if (!monitorUrl || !monitorKey) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Monitor não configurado no Worker.',
+            },
+            503,
+          )
+        }
+
+        const body = await request.json() as {
+          identifier?: string
+        }
+
+        const identifier =
+          String(body.identifier ?? '').trim()
+
+        if (!identifier) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Identificador obrigatório.',
+            },
+            400,
+          )
+        }
+
+        const response = await fetch(
+          monitorUrl,
+          {
+            method: 'POST',
+            headers: {
+              'X-Monitor-Key': monitorKey,
+              'content-type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'delete',
+              identifier,
+            }),
+          },
+        )
+
+        const data = await response.json() as {
+          ok?: boolean
+          error?: string
+        }
+
+        if (!response.ok || !data.ok) {
+          return json(
+            {
+              ok: false,
+              error:
+                data.error ||
+                `Monitor local respondeu HTTP ${response.status}.`,
+            },
+            response.status === 404
+              ? 404
+              : 502,
+          )
+        }
+
+        return json({
+          ok: true,
+          identifier,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao remover dispositivo.',
+          },
+          500,
+        )
+      }
+    }
+
+
     if (url.pathname === '/api/boat-colors' && request.method === 'GET') {
       try {
         await ensureBoatSettingsTable(env)

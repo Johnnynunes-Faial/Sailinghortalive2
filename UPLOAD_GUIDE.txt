@@ -1,40 +1,19 @@
-v0.16 — MONITOR LOCAL DE DISPOSITIVOS DESCONHECIDOS
+v0.16.1 — REMOVER DISPOSITIVOS DESCONHECIDOS
 
-FAZER UMA VEZ ANTES/DEPOIS DO DEPLOY
+1. Atualizar primeiro o PC para:
+   Traccar-Unknown-Devices-Monitor-v2.1.zip
 
-A) PC DO TRACCAR
-1. Extrair Traccar-Unknown-Devices-Monitor-v2.zip.
 2. Executar instalar-monitor-traccar.bat como Administrador.
-3. Copiar a chave mostrada no fim.
-   Também fica em:
-   C:\ProgramData\TraccarUnknownMonitor\monitor-key.txt
+   A chave existente é preservada.
 
-B) CLOUDFLARE TUNNEL
-No tunnel que já aponta para o PC:
-1. Adicionar Public Hostname.
-2. Subdomain: monitor
-3. Domain: sailinghortalive.com
-4. Type: HTTP
-5. URL: localhost:8765
-6. Guardar.
+3. Publicar esta v0.16.1 do site como habitual.
 
-C) WORKER
-Adicionar Secret:
-UNKNOWN_MONITOR_KEY
-com a chave copiada do PC.
+4. No Admin:
+   Monitor Traccar → Dispositivos desconhecidos → Atualizar lista
 
-O wrangler.jsonc já contém:
-UNKNOWN_MONITOR_URL=https://monitor.sailinghortalive.com/unknown-devices
+5. Cada dispositivo passa a ter:
+   - Copiar ID
+   - Remover da lista
 
-D) SITE
-Carregar esta v0.16 no GitHub como habitual.
-
-TESTE
-1. Confirmar que o monitor local continua a criar/atualizar unknown-devices.json.
-2. Abrir /admin.
-3. No fundo abrir Monitor Traccar.
-4. Abrir Dispositivos desconhecidos.
-5. Clicar Atualizar lista.
-6. A lista deve aparecer apenas nesse momento.
-
-Não existe polling.
+A remoção limpa apenas JSON/CSV do monitor.
+Se o dispositivo voltar a transmitir ainda desconhecido, reaparece.
