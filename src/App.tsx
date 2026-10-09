@@ -37,6 +37,7 @@ type CoursePoint = {
   latitude: number
   longitude: number
   point_order: number
+  rounding_side?: 'port' | 'starboard' | null
 }
 
 type CourseLine = {
@@ -770,6 +771,23 @@ function PublicLiveView() {
               permanent: false,
               direction: 'top',
             })
+
+          if (
+            point.point_type === 'buoy' &&
+            point.rounding_side
+          ) {
+            L.marker(
+              [point.latitude, point.longitude],
+              {
+                interactive: false,
+                keyboard: false,
+                zIndexOffset: 500,
+                icon: makeRoundingArrowIcon(
+                  point.rounding_side,
+                ),
+              },
+            ).addTo(layer)
+          }
         }
       }
     }
@@ -1473,6 +1491,26 @@ function ReplayView() {
               point.point_type,
             ),
         )
+
+      if (
+        point.point_type === 'buoy' &&
+        point.rounding_side
+      ) {
+        L.marker(
+          [
+            point.latitude,
+            point.longitude,
+          ],
+          {
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 500,
+            icon: makeRoundingArrowIcon(
+              point.rounding_side,
+            ),
+          },
+        ).addTo(courseLayer)
+      }
     }
 
     const allPoints:
@@ -3842,6 +3880,9 @@ function CourseEditor({ event }: { event: EventItem }) {
   const [historyData, setHistoryData] = useState<ReplayEventData | null>(null)
 
   const [newType, setNewType] = useState<CoursePoint['point_type']>('buoy')
+  const [newRoundingSide, setNewRoundingSide] = useState<
+    'port' | 'starboard' | ''
+  >('')
 
   const [lineTool, setLineTool] = useState<'start' | 'finish' | null>(null)
   const [pendingLineA, setPendingLineA] = useState<L.LatLng | null>(null)
@@ -3984,6 +4025,10 @@ function CourseEditor({ event }: { event: EventItem }) {
           latitude: e.latlng.lat,
           longitude: e.latlng.lng,
           point_order: current.length,
+          rounding_side:
+            newType === 'buoy'
+              ? newRoundingSide || null
+              : null,
         },
       ])
     }
@@ -3992,7 +4037,7 @@ function CourseEditor({ event }: { event: EventItem }) {
     return () => {
       map.off('click', onClick)
     }
-  }, [newType, lineTool, pendingLineA])
+  }, [newType, newRoundingSide, lineTool, pendingLineA])
 
   useEffect(() => {
     const map = mapRef.current
@@ -4075,6 +4120,23 @@ function CourseEditor({ event }: { event: EventItem }) {
         draggable: true,
         icon: makeCourseIcon(point, index),
       }).addTo(layer)
+
+      if (
+        point.point_type === 'buoy' &&
+        point.rounding_side
+      ) {
+        L.marker(
+          [point.latitude, point.longitude],
+          {
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 500,
+            icon: makeRoundingArrowIcon(
+              point.rounding_side,
+            ),
+          },
+        ).addTo(layer)
+      }
 
       marker.on('dragend', () => {
         const latlng = marker.getLatLng()
@@ -4266,6 +4328,10 @@ function CourseEditor({ event }: { event: EventItem }) {
         latitude: lat,
         longitude: lon,
         point_order: current.length,
+        rounding_side:
+          newType === 'buoy'
+            ? newRoundingSide || null
+            : null,
       },
     ])
 
@@ -4284,6 +4350,8 @@ function CourseEditor({ event }: { event: EventItem }) {
         latitude: buoy.latitude,
         longitude: buoy.longitude,
         point_order: current.length,
+        rounding_side:
+          newRoundingSide || null,
       },
     ])
   }
@@ -4299,6 +4367,10 @@ function CourseEditor({ event }: { event: EventItem }) {
         latitude: point.latitude,
         longitude: point.longitude,
         pointOrder: index,
+        roundingSide:
+          point.point_type === 'buoy'
+            ? point.rounding_side ?? null
+            : null,
       }))
 
       const linePayload = lines.map((line) => ({
@@ -4497,6 +4569,32 @@ function CourseEditor({ event }: { event: EventItem }) {
           </select>
         </div>
 
+        {newType === 'buoy' && (
+          <div>
+            <label>Rondagem da nova bóia</label>
+            <select
+              value={newRoundingSide}
+              onChange={(e) =>
+                setNewRoundingSide(
+                  e.target.value as
+                    | 'port'
+                    | 'starboard'
+                    | '',
+                )
+              }
+              disabled={lineTool !== null}
+            >
+              <option value="">Sem indicação</option>
+              <option value="port">
+                Bombordo · vermelho
+              </option>
+              <option value="starboard">
+                Estibordo · verde
+              </option>
+            </select>
+          </div>
+        )}
+
         <div className="course-help">
           Fora do modo de criação de linha, clica no mapa para adicionar a marca selecionada.
         </div>
@@ -4647,6 +4745,44 @@ function CourseEditor({ event }: { event: EventItem }) {
                     {formatBoatingCoordinate(point.latitude, 'lat')},{' '}
                     {formatBoatingCoordinate(point.longitude, 'lon')}
                   </span>
+
+                  {point.point_type === 'buoy' && (
+                    <label className="rounding-editor">
+                      <span>Rondagem</span>
+                      <select
+                        value={point.rounding_side ?? ''}
+                        onChange={(e) => {
+                          const value =
+                            e.target.value as
+                              | 'port'
+                              | 'starboard'
+                              | ''
+
+                          setPoints((current) =>
+                            current.map((item, i) =>
+                              i === index
+                                ? {
+                                    ...item,
+                                    rounding_side:
+                                      value || null,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }}
+                      >
+                        <option value="">
+                          Sem indicação
+                        </option>
+                        <option value="port">
+                          Bombordo · vermelho
+                        </option>
+                        <option value="starboard">
+                          Estibordo · verde
+                        </option>
+                      </select>
+                    </label>
+                  )}
                 </div>
 
                 <div className="point-actions">
@@ -4832,6 +4968,31 @@ function makeCourseIcon(point: CoursePoint, index: number) {
   })
 }
 
+function makeRoundingArrowIcon(
+  side: 'port' | 'starboard',
+) {
+  const isPort = side === 'port'
+  const symbol = isPort ? '↺' : '↻'
+  const label = isPort
+    ? 'Rondar por bombordo'
+    : 'Rondar por estibordo'
+
+  return L.divIcon({
+    className: 'rounding-arrow-wrapper',
+    html: `
+      <div
+        class="rounding-arrow ${side}"
+        title="${label}"
+        aria-label="${label}"
+      >
+        ${symbol}
+      </div>
+    `,
+    iconSize: [52, 52],
+    iconAnchor: [26, 26],
+  })
+}
+
 let BOAT_COLOR_OVERRIDES: Record<number, string> = {}
 
 function boatColor(id: number) {
@@ -4920,6 +5081,11 @@ function normalizeCoursePoint(point: any): CoursePoint {
     latitude: Number(point.latitude),
     longitude: Number(point.longitude),
     point_order: Number(point.point_order),
+    rounding_side:
+      point.rounding_side === 'port' ||
+      point.rounding_side === 'starboard'
+        ? point.rounding_side
+        : null,
   }
 }
 

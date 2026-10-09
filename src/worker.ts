@@ -133,6 +133,30 @@ async function ensureCourseLinesTable(env: Env) {
 }
 
 
+async function ensureCourseRoundingColumn(
+  env: Env,
+) {
+  const columns = await env.DB.prepare(`
+    PRAGMA table_info(course_points)
+  `).all<{
+    name: string
+  }>()
+
+  const hasColumn =
+    (columns.results ?? []).some(
+      (column) =>
+        column.name === 'rounding_side',
+    )
+
+  if (!hasColumn) {
+    await env.DB.prepare(`
+      ALTER TABLE course_points
+      ADD COLUMN rounding_side TEXT
+    `).run()
+  }
+}
+
+
 async function ensureBoatSettingsTable(
   env: Env,
 ) {
@@ -932,6 +956,8 @@ export default {
           boat_name: string
         }>()
 
+        await ensureCourseRoundingColumn(env)
+
         const course = await env.DB.prepare(`
           SELECT
             id,
@@ -940,7 +966,8 @@ export default {
             name,
             latitude,
             longitude,
-            point_order
+            point_order,
+            rounding_side
           FROM course_points
           WHERE event_id = ?
           ORDER BY point_order ASC
@@ -1240,8 +1267,10 @@ export default {
 
         const boats = (await getActiveBoats(env)).filter((boat) => allowedIds.has(boat.id))
 
+        await ensureCourseRoundingColumn(env)
+
         const course = await env.DB.prepare(`
-          SELECT id, event_id, point_type, name, latitude, longitude, point_order
+          SELECT id, event_id, point_type, name, latitude, longitude, point_order, rounding_side
           FROM course_points
           WHERE event_id = ?
           ORDER BY point_order ASC
@@ -1607,9 +1636,11 @@ export default {
 
     if (courseMatch && request.method === 'GET') {
       try {
+        await ensureCourseRoundingColumn(env)
+
         const eventId = courseMatch[1]
         const result = await env.DB.prepare(`
-          SELECT id, event_id, point_type, name, latitude, longitude, point_order
+          SELECT id, event_id, point_type, name, latitude, longitude, point_order, rounding_side
           FROM course_points
           WHERE event_id = ?
           ORDER BY point_order ASC
@@ -1623,6 +1654,8 @@ export default {
 
     if (courseMatch && request.method === 'PUT') {
       try {
+        await ensureCourseRoundingColumn(env)
+
         const eventId = courseMatch[1]
         const body = await request.json() as {
           points?: Array<{
@@ -1631,6 +1664,7 @@ export default {
             latitude: number
             longitude: number
             pointOrder: number
+            roundingSide?: 'port' | 'starboard' | null
           }>
         }
 
@@ -1641,9 +1675,15 @@ export default {
           ...points.map((point) =>
             env.DB.prepare(`
               INSERT INTO course_points (
-                event_id, point_type, name, latitude, longitude, point_order
+                event_id,
+                point_type,
+                name,
+                latitude,
+                longitude,
+                point_order,
+                rounding_side
               )
-              VALUES (?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
             `).bind(
               eventId,
               point.pointType,
@@ -1651,6 +1691,13 @@ export default {
               point.latitude,
               point.longitude,
               point.pointOrder,
+              point.pointType === 'buoy' &&
+              (
+                point.roundingSide === 'port' ||
+                point.roundingSide === 'starboard'
+              )
+                ? point.roundingSide
+                : null,
             ),
           ),
         ]

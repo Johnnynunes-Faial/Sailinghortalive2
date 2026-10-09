@@ -1,16 +1,16 @@
-v0.17.0 — VISTA GERAL
+v0.18.0 — RONDAGEM DAS BÓIAS
 
 Publicar como nas versões anteriores.
 
 IMPORTANTE NO GITHUB PELO BROWSER:
-- ficheiros dentro de src/ devem ser enviados para a pasta src/ do repositório;
-- ficheiros dentro de public/ devem ser enviados para public/;
-- ficheiros da raiz vão para a raiz.
+- ficheiros de src/ -> pasta src/ do repositório
+- ficheiros de public/ -> pasta public/
+- ficheiros da raiz -> raiz
 
-Alterações:
-1. O site abre em Vista Geral.
-2. A vista inicial mostra os grupos Central e Oriental.
-3. Não faz zoom automático para um barco isolado.
-4. Mostrar todos continua a fazer zoom para todos os barcos ativos.
-5. Sailinghorta Live.
-6. Modo Geral -> Vista Geral.
+Não é necessário executar SQL no Cloudflare D1.
+No primeiro pedido de percurso, o Worker acrescenta automaticamente
+a coluna rounding_side à tabela course_points.
+
+As duas regatas já programadas e os percursos existentes são preservados.
+Abre cada regata -> Percurso -> "Marcas do percurso" e escolhe a rondagem
+das bóias que quiseres alterar.

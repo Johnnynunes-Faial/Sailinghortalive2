@@ -2231,3 +2231,64 @@ button {
     flex: 1 1 auto;
   }
 }
+
+
+/* v0.18 — indicação de rondagem das bóias */
+.rounding-arrow-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;
+}
+
+.rounding-arrow {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  line-height: 1;
+  font-weight: 800;
+  font-family: Arial, sans-serif;
+  text-shadow:
+    0 0 3px #fff,
+    0 0 5px #fff,
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.rounding-arrow.port {
+  color: #d62828;
+}
+
+.rounding-arrow.starboard {
+  color: #168a45;
+}
+
+.rounding-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+
+.rounding-editor > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.rounding-editor select {
+  min-width: 180px;
+}
+
+@media (max-width: 640px) {
+  .rounding-editor {
+    align-items: stretch;
+  }
+
+  .rounding-editor select {
+    width: 100%;
+    min-width: 0;
+  }
+}
