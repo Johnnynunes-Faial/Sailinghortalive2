@@ -2,6 +2,8 @@ interface Env {
   TRACCAR_URL: string
   TRACCAR_USERNAME: string
   TRACCAR_PASSWORD: string
+  UNKNOWN_MONITOR_URL?: string
+  UNKNOWN_MONITOR_KEY?: string
   DB: D1Database
 }
 
@@ -536,6 +538,115 @@ export default {
 
     if (url.pathname === '/api/health') {
       return json({ ok: true, service: 'sailinghortalive' })
+    }
+
+    if (
+      url.pathname === '/admin/api/unknown-devices' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const monitorUrl =
+          env.UNKNOWN_MONITOR_URL?.trim()
+
+        const monitorKey =
+          env.UNKNOWN_MONITOR_KEY?.trim()
+
+        if (!monitorUrl || !monitorKey) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Monitor não configurado no Worker.',
+            },
+            503,
+          )
+        }
+
+        const response = await fetch(
+          monitorUrl,
+          {
+            headers: {
+              'X-Monitor-Key': monitorKey,
+              Accept: 'application/json',
+            },
+            cf: {
+              cacheTtl: 0,
+            },
+          } as RequestInit,
+        )
+
+        if (!response.ok) {
+          return json(
+            {
+              ok: false,
+              error:
+                `Monitor local respondeu HTTP ${response.status}.`,
+            },
+            502,
+          )
+        }
+
+        const data = await response.json() as {
+          ok?: boolean
+          devices?: Array<{
+            identifier?: string
+            firstSeen?: string
+            lastSeen?: string
+            attempts?: number
+            lastSourceIp?: string
+          }>
+        }
+
+        if (!data.ok || !Array.isArray(data.devices)) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Resposta inválida do monitor local.',
+            },
+            502,
+          )
+        }
+
+        const devices = data.devices
+          .map((item) => ({
+            identifier:
+              String(item.identifier ?? '').trim(),
+            firstSeen:
+              String(item.firstSeen ?? ''),
+            lastSeen:
+              String(item.lastSeen ?? ''),
+            attempts:
+              Number(item.attempts ?? 0),
+            lastSourceIp:
+              String(item.lastSourceIp ?? ''),
+          }))
+          .filter(
+            (item) =>
+              item.identifier.length > 0,
+          )
+          .sort((a, b) =>
+            b.lastSeen.localeCompare(
+              a.lastSeen,
+            ),
+          )
+
+        return json({
+          ok: true,
+          devices,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao consultar monitor local.',
+          },
+          500,
+        )
+      }
     }
 
     if (url.pathname === '/api/boat-colors' && request.method === 'GET') {

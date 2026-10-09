@@ -2537,6 +2537,11 @@ function AdminView() {
           <h2>Barcos · cores</h2>
           <BoatColorsAdmin />
         </section>
+
+        <section className="admin-card">
+          <h2>Monitor Traccar</h2>
+          <UnknownDevicesAdmin />
+        </section>
       </div>
 
       {editingEvent && (
@@ -3577,6 +3582,165 @@ function BoatColorsAdmin() {
   )
 }
 
+
+
+type UnknownDeviceRecord = {
+  identifier: string
+  firstSeen: string
+  lastSeen: string
+  attempts: number
+  lastSourceIp?: string
+}
+
+function UnknownDevicesAdmin() {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [items, setItems] = useState<UnknownDeviceRecord[]>([])
+  const [loadedOnce, setLoadedOnce] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function loadUnknownDevices() {
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        '/admin/api/unknown-devices',
+        { cache: 'no-store' },
+      )
+
+      const data = await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Não foi possível consultar o monitor local.',
+        )
+      }
+
+      setItems(
+        Array.isArray(data.devices)
+          ? data.devices
+          : [],
+      )
+      setLoadedOnce(true)
+
+      setMessage(
+        `Lista atualizada: ${
+          Array.isArray(data.devices)
+            ? data.devices.length
+            : 0
+        } dispositivo(s) desconhecido(s).`,
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao consultar dispositivos desconhecidos.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function copyId(identifier: string) {
+    try {
+      await navigator.clipboard.writeText(identifier)
+      setMessage(`Identificador ${identifier} copiado.`)
+    } catch {
+      setMessage(`Identificador: ${identifier}`)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="unknown-devices-toggle"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <span>Dispositivos desconhecidos</span>
+        <span
+          className={
+            open
+              ? 'unknown-devices-chevron open'
+              : 'unknown-devices-chevron'
+          }
+          aria-hidden="true"
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="unknown-devices-panel">
+          <p className="unknown-devices-help">
+            Esta lista vem do monitor instalado no PC do
+            Traccar. O site só faz a consulta quando
+            carregas no botão abaixo.
+          </p>
+
+          <button
+            type="button"
+            className="save-button"
+            disabled={loading}
+            onClick={loadUnknownDevices}
+          >
+            {loading
+              ? 'A consultar...'
+              : 'Atualizar lista'}
+          </button>
+
+          {loadedOnce && !loading && items.length === 0 && (
+            <div className="unknown-empty">
+              Não há dispositivos desconhecidos registados
+              pelo monitor.
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <div className="unknown-device-list">
+              {items.map((item) => (
+                <div
+                  key={item.identifier}
+                  className="unknown-device-row"
+                >
+                  <div className="unknown-device-info">
+                    <strong>{item.identifier}</strong>
+                    <span>
+                      Primeira: {item.firstSeen || '—'}
+                    </span>
+                    <span>
+                      Última: {item.lastSeen || '—'}
+                    </span>
+                    <span>
+                      Tentativas: {Number(item.attempts || 0)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => copyId(item.identifier)}
+                  >
+                    Copiar ID
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {message && (
+            <div className="inline-message">
+              {message}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
 
 function CourseEditor({ event }: { event: EventItem }) {
   const mapElRef = useRef<HTMLDivElement | null>(null)

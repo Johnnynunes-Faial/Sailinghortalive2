@@ -2118,3 +2118,93 @@ button {
     padding: 12px;
   }
 }
+
+
+/* v0.16 — monitor local de dispositivos desconhecidos */
+.unknown-devices-toggle {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfd8df;
+  border-radius: 10px;
+  background: #f7f9fa;
+  color: #1b2a35;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unknown-devices-chevron {
+  transition: transform 0.18s ease;
+}
+
+.unknown-devices-chevron.open {
+  transform: rotate(180deg);
+}
+
+.unknown-devices-panel {
+  margin-top: 12px;
+}
+
+.unknown-devices-help {
+  margin: 0 0 12px;
+  color: #54616b;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.unknown-device-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.unknown-device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d9e0e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.unknown-device-info {
+  display: grid;
+  min-width: 0;
+}
+
+.unknown-device-info strong {
+  overflow-wrap: anywhere;
+}
+
+.unknown-device-info span {
+  color: #6b7780;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.unknown-empty {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f4f7f8;
+  color: #59656e;
+}
+
+@media (max-width: 640px) {
+  .unknown-devices-toggle {
+    min-height: 48px;
+    padding: 12px;
+  }
+
+  .unknown-device-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
