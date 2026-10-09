@@ -1,19 +1,16 @@
-v0.16.1 — REMOVER DISPOSITIVOS DESCONHECIDOS
+v0.17.0 — VISTA GERAL
 
-1. Atualizar primeiro o PC para:
-   Traccar-Unknown-Devices-Monitor-v2.1.zip
+Publicar como nas versões anteriores.
 
-2. Executar instalar-monitor-traccar.bat como Administrador.
-   A chave existente é preservada.
+IMPORTANTE NO GITHUB PELO BROWSER:
+- ficheiros dentro de src/ devem ser enviados para a pasta src/ do repositório;
+- ficheiros dentro de public/ devem ser enviados para public/;
+- ficheiros da raiz vão para a raiz.
 
-3. Publicar esta v0.16.1 do site como habitual.
-
-4. No Admin:
-   Monitor Traccar → Dispositivos desconhecidos → Atualizar lista
-
-5. Cada dispositivo passa a ter:
-   - Copiar ID
-   - Remover da lista
-
-A remoção limpa apenas JSON/CSV do monitor.
-Se o dispositivo voltar a transmitir ainda desconhecido, reaparece.
+Alterações:
+1. O site abre em Vista Geral.
+2. A vista inicial mostra os grupos Central e Oriental.
+3. Não faz zoom automático para um barco isolado.
+4. Mostrar todos continua a fazer zoom para todos os barcos ativos.
+5. Sailinghorta Live.
+6. Modo Geral -> Vista Geral.

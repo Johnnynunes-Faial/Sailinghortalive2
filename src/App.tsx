@@ -156,6 +156,11 @@ const BOAT_COLORS = [
   '#d81b60',
 ]
 
+const GENERAL_VIEW_BOUNDS = L.latLngBounds(
+  [36.75, -29.25],
+  [39.35, -24.65],
+)
+
 function addNauticalMapLayers(
   map: L.Map,
 ) {
@@ -361,9 +366,13 @@ function PublicLiveView() {
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
 
-    const map = L.map(mapElementRef.current).setView([38.535, -28.63], 11)
+    const map = L.map(mapElementRef.current)
 
     addNauticalMapLayers(map)
+
+    map.fitBounds(GENERAL_VIEW_BOUNDS, {
+      padding: [20, 20],
+    })
 
     mapRef.current = map
     courseLayerRef.current = L.layerGroup().addTo(map)
@@ -453,17 +462,6 @@ function PublicLiveView() {
 
         setEvents(visibleEvents)
 
-        const liveEvents = visibleEvents.filter(
-          (event) => event.status === 'live',
-        )
-
-        if (
-          selectedEventId === 'general' &&
-          liveEvents.length === 1
-        ) {
-          setSelectedEventId(liveEvents[0].id)
-          lastFitKeyRef.current = ''
-        }
       })
       .catch(() => setEvents([]))
   }, [])
@@ -480,6 +478,22 @@ function PublicLiveView() {
       lastFitKeyRef.current = ''
     }
   }, [events, selectedEventId])
+
+  useEffect(() => {
+    if (
+      selectedEventId !== 'general' ||
+      !mapRef.current
+    ) {
+      return
+    }
+
+    mapRef.current.fitBounds(
+      GENERAL_VIEW_BOUNDS,
+      {
+        padding: [20, 20],
+      },
+    )
+  }, [selectedEventId])
 
   useEffect(() => {
     let active = true
@@ -787,7 +801,10 @@ function PublicLiveView() {
 
     const fitKey = `${selectedEventId}:${boats.map((b) => b.id).sort().join(',')}:${course.length}:${lines.length}`
 
-    if (lastFitKeyRef.current !== fitKey) {
+    if (
+      selectedEventId !== 'general' &&
+      lastFitKeyRef.current !== fitKey
+    ) {
       const points: L.LatLngExpression[] = []
 
       for (const boat of boats) {
@@ -884,7 +901,7 @@ function PublicLiveView() {
       <header className="top-bar">
         <div className="brand-block">
           <div className="brand-small">REGATA LIVE</div>
-          <div className="brand-title">Sailing Horta Live</div>
+          <div className="brand-title">Sailinghorta Live</div>
         </div>
 
         <div className="event-controls">
@@ -896,7 +913,7 @@ function PublicLiveView() {
               lastFitKeyRef.current = ''
             }}
           >
-            <option value="general">Modo Geral</option>
+            <option value="general">Vista Geral</option>
             {events.map((event) => (
               <option key={event.id} value={event.id}>
                 {event.status === 'live'
@@ -1020,7 +1037,7 @@ function PublicLiveView() {
                   ? selectedEventId === 'general'
                     ? 'Mostrar os últimos 20 minutos de rasto dos barcos ativos'
                     : 'Mostrar os últimos 2 NM de rasto dos barcos'
-                  : 'Disponível no Modo Geral ou quando estiver selecionada uma regata em direto'
+                  : 'Disponível na Vista Geral ou quando estiver selecionada uma regata em direto'
               }
             >
               <span>
