@@ -5,7 +5,8 @@
   "main": "./src/worker.ts",
   "keep_vars": true,
   "vars": {
-    "TRACCAR_URL": "https://api.sailinghortalive.com"
+    "TRACCAR_URL": "https://api.sailinghortalive.com",
+    "UNKNOWN_MONITOR_URL": "https://monitor.sailinghortalive.com/unknown-devices"
   },
   "d1_databases": [
     {

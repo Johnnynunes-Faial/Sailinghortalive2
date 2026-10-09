@@ -1,13 +1,47 @@
-# Sailing Horta Live 2 — v0.15.1
+# Sailing Horta Live 2 — v0.16
 
-Pequena alteração de interface no Admin.
+## Dispositivos desconhecidos — monitor local
 
-## O que mudou
-- a prioridade volta a ser criação e edição de regatas;
-- a secção **Barcos · cores** foi movida para o fundo do Admin;
-- a lista de barcos fica **fechada por defeito**;
-- os barcos só são carregados quando se abre “Gerir cores dos barcos”.
+Esta versão usa o monitor local instalado no PC do Traccar.
 
-Isto evita uma lista grande no telemóvel e reduz trabalho desnecessário do Admin quando as cores não estão a ser editadas.
+Não usa WebSocket do Traccar.
+Não precisa de `web.showUnknownDevices=true`.
+Não faz polling contínuo.
 
-Mantém toda a funcionalidade da v0.15.
+No fundo do Admin existe:
+**Monitor Traccar → Dispositivos desconhecidos**
+
+A lista só é consultada quando o administrador carrega em:
+**Atualizar lista**
+
+Fluxo:
+tracker-server.log
+→ monitor local
+→ unknown-devices.json
+→ endpoint local protegido
+→ Cloudflare Tunnel
+→ Worker
+→ Admin
+
+## Configuração necessária
+
+1. Instalar/atualizar o pacote `Traccar-Unknown-Devices-Monitor-v2.zip`.
+2. No Cloudflare Tunnel já existente, criar hostname público:
+   `monitor.sailinghortalive.com`
+   Serviço:
+   `http://localhost:8765`
+3. Copiar:
+   `C:\ProgramData\TraccarUnknownMonitor\monitor-key.txt`
+4. No Worker `sailinghortalive2`, criar Secret:
+   `UNKNOWN_MONITOR_KEY`
+   com essa chave.
+5. Fazer deploy desta versão.
+
+`UNKNOWN_MONITOR_URL` já está configurado no `wrangler.jsonc`.
+
+## Segurança
+
+O endpoint local exige a chave no header `X-Monitor-Key`.
+A chave não fica no GitHub.
+O navegador nunca recebe a chave.
+A consulta passa pelo Worker e a rota pública do site continua em `/admin/api/*`, protegida pelo Cloudflare Access.

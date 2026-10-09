@@ -1,12 +1,40 @@
-v0.15.1 — CORES RECOLHIDAS NO ADMIN
+v0.16 — MONITOR LOCAL DE DISPOSITIVOS DESCONHECIDOS
 
-Carrega por cima da v0.15 como habitual.
+FAZER UMA VEZ ANTES/DEPOIS DO DEPLOY
 
-No Admin:
-1. Nova regata continua no topo.
-2. Regatas aparece logo a seguir.
-3. Barcos · cores fica no fundo.
-4. A lista fica fechada por defeito.
-5. Só abre e carrega os barcos ao tocar em “Gerir cores dos barcos”.
+A) PC DO TRACCAR
+1. Extrair Traccar-Unknown-Devices-Monitor-v2.zip.
+2. Executar instalar-monitor-traccar.bat como Administrador.
+3. Copiar a chave mostrada no fim.
+   Também fica em:
+   C:\ProgramData\TraccarUnknownMonitor\monitor-key.txt
 
-No telemóvel o fluxo de edição das regatas mantém-se praticamente igual ao anterior.
+B) CLOUDFLARE TUNNEL
+No tunnel que já aponta para o PC:
+1. Adicionar Public Hostname.
+2. Subdomain: monitor
+3. Domain: sailinghortalive.com
+4. Type: HTTP
+5. URL: localhost:8765
+6. Guardar.
+
+C) WORKER
+Adicionar Secret:
+UNKNOWN_MONITOR_KEY
+com a chave copiada do PC.
+
+O wrangler.jsonc já contém:
+UNKNOWN_MONITOR_URL=https://monitor.sailinghortalive.com/unknown-devices
+
+D) SITE
+Carregar esta v0.16 no GitHub como habitual.
+
+TESTE
+1. Confirmar que o monitor local continua a criar/atualizar unknown-devices.json.
+2. Abrir /admin.
+3. No fundo abrir Monitor Traccar.
+4. Abrir Dispositivos desconhecidos.
+5. Clicar Atualizar lista.
+6. A lista deve aparecer apenas nesse momento.
+
+Não existe polling.
