@@ -81,6 +81,20 @@ type MapWebcam = {
   lastUpdatedOn: string | null
 }
 
+type WindStation = {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+  windDirection: number | null
+  variableWind: boolean
+  windSpeed: number
+  windGust: number
+  temperature: number | null
+  observedAt: string | null
+  rawMetar: string
+}
+
 function windCardinal(degrees: number) {
   const directions = [
     'N', 'NE', 'E', 'SE',
@@ -358,11 +372,15 @@ function PublicLiveView() {
   const trackLayerRef = useRef<L.LayerGroup | null>(null)
   const measurementLayerRef = useRef<L.LayerGroup | null>(null)
   const webcamLayerRef = useRef<L.LayerGroup | null>(null)
+  const windStationLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
   const weatherMoveTimerRef = useRef<number | null>(null)
   const webcamMoveTimerRef = useRef<number | null>(null)
   const webcamLastFetchRef = useRef(0)
   const webcamLastKeyRef = useRef('')
+  const windStationMoveTimerRef = useRef<number | null>(null)
+  const windStationLastFetchRef = useRef(0)
+  const windStationLastKeyRef = useRef('')
   const weatherLastKeyRef = useRef('')
   const weatherLastFetchRef = useRef(0)
 
@@ -375,6 +393,10 @@ function PublicLiveView() {
   const [showCourse, setShowCourse] = useState(true)
   const [showNames, setShowNames] = useState(true)
   const [showWind, setShowWind] = useState(false)
+  const [showWindStations, setShowWindStations] = useState(false)
+  const [windStations, setWindStations] = useState<WindStation[]>([])
+  const [windStationsLoading, setWindStationsLoading] = useState(false)
+  const [windStationsError, setWindStationsError] = useState<string | null>(null)
   const [showWebcams, setShowWebcams] = useState(false)
   const [webcams, setWebcams] = useState<MapWebcam[]>([])
   const [webcamsLoading, setWebcamsLoading] = useState(false)
@@ -529,6 +551,74 @@ function PublicLiveView() {
     }
   }, [])
 
+  async function loadWindStationsForMap(
+    force = false,
+  ) {
+    const map = mapRef.current
+    if (!map || !showWindStations) return
+
+    const bounds = map.getBounds()
+    const key = [
+      bounds.getNorth().toFixed(2),
+      bounds.getEast().toFixed(2),
+      bounds.getSouth().toFixed(2),
+      bounds.getWest().toFixed(2),
+      Math.round(map.getZoom()),
+    ].join(':')
+
+    const now = Date.now()
+
+    if (
+      !force &&
+      windStationLastKeyRef.current === key &&
+      now - windStationLastFetchRef.current < 5 * 60 * 1000
+    ) {
+      return
+    }
+
+    windStationLastKeyRef.current = key
+    windStationLastFetchRef.current = now
+    setWindStationsLoading(true)
+    setWindStationsError(null)
+
+    try {
+      const response = await fetch('/api/wind-stations', {
+        cache: 'no-store',
+      })
+
+      const data = await response.json() as {
+        ok?: boolean
+        error?: string
+        stations?: WindStation[]
+      }
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || 'Não foi possível carregar as estações.',
+        )
+      }
+
+      setWindStations(
+        (data.stations ?? [])
+          .filter((station) =>
+            bounds.contains(
+              L.latLng(station.latitude, station.longitude),
+            ),
+          )
+          .slice(0, 10),
+      )
+    } catch (error) {
+      setWindStations([])
+      setWindStationsError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar estações.',
+      )
+    } finally {
+      setWindStationsLoading(false)
+    }
+  }
+
   async function loadWebcamsForMap(
     force = false,
   ) {
@@ -652,6 +742,8 @@ function PublicLiveView() {
       L.layerGroup().addTo(map)
     webcamLayerRef.current =
       L.layerGroup().addTo(map)
+    windStationLayerRef.current =
+      L.layerGroup().addTo(map)
 
     const initialCenter =
       map.getCenter()
@@ -684,6 +776,19 @@ function PublicLiveView() {
         }, 800)
     }
 
+    const handleWindStationMove = () => {
+      if (!showWindStations) return
+
+      if (windStationMoveTimerRef.current !== null) {
+        window.clearTimeout(windStationMoveTimerRef.current)
+      }
+
+      windStationMoveTimerRef.current =
+        window.setTimeout(() => {
+          loadWindStationsForMap()
+        }, 1500)
+    }
+
     const handleWebcamMove = () => {
       if (!showWebcams) {
         return
@@ -710,6 +815,10 @@ function PublicLiveView() {
     )
     map.on(
       'moveend',
+      handleWindStationMove,
+    )
+    map.on(
+      'moveend',
       handleWebcamMove,
     )
 
@@ -732,8 +841,16 @@ function PublicLiveView() {
       )
       map.off(
         'moveend',
+        handleWindStationMove,
+      )
+      map.off(
+        'moveend',
         handleWebcamMove,
       )
+
+      if (windStationMoveTimerRef.current !== null) {
+        window.clearTimeout(windStationMoveTimerRef.current)
+      }
 
       if (
         webcamMoveTimerRef.current !==
@@ -761,6 +878,17 @@ function PublicLiveView() {
       mapRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (!showWindStations) {
+      setWindStations([])
+      setWindStationsError(null)
+      windStationLayerRef.current?.clearLayers()
+      return
+    }
+
+    loadWindStationsForMap(true)
+  }, [showWindStations])
 
   useEffect(() => {
     if (!showWebcams) {
@@ -1403,6 +1531,85 @@ function PublicLiveView() {
   ])
 
   useEffect(() => {
+    const layer = windStationLayerRef.current
+    if (!layer) return
+
+    layer.clearLayers()
+    if (!showWindStations) return
+
+    for (const station of windStations) {
+      const directionLabel =
+        station.variableWind
+          ? 'VRB'
+          : station.windDirection !== null
+            ? `${Math.round(station.windDirection).toString().padStart(3, '0')}°`
+            : '—'
+
+      const icon = L.divIcon({
+        className: 'wind-station-marker-wrapper',
+        html: `
+          <div class="wind-station-marker">
+            <div
+              class="wind-station-arrow"
+              style="transform: rotate(${station.windDirection ?? 0}deg)"
+            >↑</div>
+            <div class="wind-station-speed">
+              ${Math.round(station.windSpeed)}
+            </div>
+          </div>
+        `,
+        iconSize: [42, 42],
+        iconAnchor: [21, 21],
+      })
+
+      const marker = L.marker(
+        [station.latitude, station.longitude],
+        { icon, riseOnHover: true },
+      ).addTo(layer)
+
+      const observed =
+        station.observedAt
+          ? new Date(station.observedAt).toLocaleString(
+              'pt-PT',
+              {
+                timeZone: 'Atlantic/Azores',
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              },
+            )
+          : '—'
+
+      marker.bindPopup(`
+        <div class="wind-station-popup">
+          <strong>${escapeHtml(station.name)} · ${escapeHtml(station.id)}</strong>
+          <div>Vento: ${escapeHtml(directionLabel)} · ${station.windSpeed.toFixed(0)} kn</div>
+          <div>Rajada: ${
+            station.windGust > 0
+              ? `${station.windGust.toFixed(0)} kn`
+              : '—'
+          }</div>
+          <div>Observação: ${escapeHtml(observed)}</div>
+          ${
+            station.temperature !== null
+              ? `<div>Temperatura: ${station.temperature.toFixed(0)} °C</div>`
+              : ''
+          }
+          ${
+            station.rawMetar
+              ? `<div class="wind-station-metar">${escapeHtml(station.rawMetar)}</div>`
+              : ''
+          }
+          <div class="wind-station-credit">
+            METAR · AviationWeather.gov
+          </div>
+        </div>
+      `)
+    }
+  }, [windStations, showWindStations])
+
+  useEffect(() => {
     const layer = webcamLayerRef.current
 
     if (!layer) return
@@ -1887,7 +2094,7 @@ function PublicLiveView() {
             </label>
 
             <label className="layer-row">
-              <span>Vento (Windy)</span>
+              <span>Previsão de vento</span>
               <input
                 type="checkbox"
                 checked={showWind}
@@ -1898,6 +2105,31 @@ function PublicLiveView() {
                 }
               />
             </label>
+
+            <label className="layer-row">
+              <span>
+                Estações de vento
+                {windStationsLoading
+                  ? ' · a carregar…'
+                  : ''}
+              </span>
+              <input
+                type="checkbox"
+                checked={showWindStations}
+                onChange={(event) =>
+                  setShowWindStations(
+                    event.target.checked,
+                  )
+                }
+              />
+            </label>
+
+            {showWindStations &&
+              windStationsError && (
+                <div className="webcams-layer-error">
+                  {windStationsError}
+                </div>
+              )}
 
             <label className="layer-row">
               <span>

@@ -1,24 +1,16 @@
-v0.22.0 — WEBCAMS WINDY
+v0.23.0 — ESTAÇÕES DE VENTO METAR
 
-ANTES DE PUBLICAR / PARA A CAMADA FUNCIONAR:
+Publicar como nas versões anteriores.
 
-1. Criar uma chave gratuita Webcams API em:
-   https://api.windy.com/
-
-2. No Cloudflare:
-   Workers & Pages -> sailinghortalive2 -> Settings -> Variables and Secrets
-
-3. Adicionar como SECRET:
-   WINDY_WEBCAMS_KEY
-   valor = a chave obtida no Windy
-
-IMPORTANTE:
-- Não colocar a chave no GitHub nem no wrangler.jsonc.
-- A camada só faz pedidos quando é ativada.
-- Não há polling contínuo.
-- Não há SQL/D1 adicional.
-
-PUBLICAÇÃO:
-- src/ -> pasta src/
-- public/ -> pasta public/
+GitHub pelo browser:
+- src/ -> src/
+- public/ -> public/
 - ficheiros da raiz -> raiz
+
+Não é necessária chave nova.
+O WINDY_WEBCAMS_KEY continua apenas para Webcams.
+
+Camadas:
+- Previsão de vento
+- Estações de vento
+- Webcams (Windy)

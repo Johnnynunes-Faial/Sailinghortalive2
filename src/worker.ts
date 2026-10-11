@@ -566,6 +566,122 @@ export default {
     }
 
     if (
+      url.pathname === '/api/wind-stations' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const stationNames: Record<string, string> = {
+          LPAZ: 'Santa Maria',
+          LPPD: 'Ponta Delgada',
+          LPLA: 'Lajes',
+          LPHR: 'Horta',
+          LPPI: 'Pico',
+          LPSJ: 'São Jorge',
+          LPGR: 'Graciosa',
+          LPFL: 'Flores',
+          LPCR: 'Corvo',
+        }
+
+        const ids = Object.keys(stationNames).join(',')
+
+        const response = await fetch(
+          `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(ids)}&format=json`,
+          {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': 'SailingHortaLive/1.0 sailinghortalive.com',
+            },
+            cf: {
+              cacheTtl: 300,
+              cacheEverything: true,
+            },
+          } as RequestInit,
+        )
+
+        if (response.status === 204) {
+          return json({ ok: true, stations: [] })
+        }
+
+        if (!response.ok) {
+          return json(
+            { ok: false, error: `METAR HTTP ${response.status}` },
+            502,
+          )
+        }
+
+        const data = await response.json() as Array<any>
+
+        const stations = (Array.isArray(data) ? data : [])
+          .map((item) => {
+            const id = String(item.icaoId ?? '').toUpperCase()
+            const latitude = Number(item.lat)
+            const longitude = Number(item.lon)
+            const windSpeed = Number(item.wspd ?? 0)
+            const windGust = Number(item.wgst ?? 0)
+
+            const windDirection =
+              item.wdir === 'VRB'
+                ? null
+                : Number(item.wdir)
+
+            let observedAt: string | null = null
+            const rawTime = item.obsTime ?? item.reportTime ?? null
+
+            if (typeof rawTime === 'number') {
+              observedAt = new Date(
+                rawTime > 10_000_000_000 ? rawTime : rawTime * 1000,
+              ).toISOString()
+            } else if (rawTime) {
+              observedAt = String(rawTime)
+            }
+
+            return {
+              id,
+              name: stationNames[id] ?? id,
+              latitude,
+              longitude,
+              windDirection:
+                Number.isFinite(windDirection as number)
+                  ? windDirection
+                  : null,
+              variableWind: item.wdir === 'VRB',
+              windSpeed: Number.isFinite(windSpeed) ? windSpeed : 0,
+              windGust: Number.isFinite(windGust) ? windGust : 0,
+              temperature:
+                Number.isFinite(Number(item.temp))
+                  ? Number(item.temp)
+                  : null,
+              observedAt,
+              rawMetar: String(item.rawOb ?? ''),
+            }
+          })
+          .filter(
+            (station) =>
+              station.id &&
+              Number.isFinite(station.latitude) &&
+              Number.isFinite(station.longitude),
+          )
+
+        return json({
+          ok: true,
+          source: 'AviationWeather.gov METAR',
+          stations,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao carregar METAR.',
+          },
+          500,
+        )
+      }
+    }
+
+    if (
       url.pathname === '/api/webcams' &&
       request.method === 'GET'
     ) {
