@@ -1,16 +1,10 @@
-v0.23.0 — ESTAÇÕES DE VENTO METAR
+v0.23.1 — ÍCONES DAS ESTAÇÕES DE VENTO
 
 Publicar como nas versões anteriores.
 
-GitHub pelo browser:
-- src/ -> src/
-- public/ -> public/
-- ficheiros da raiz -> raiz
+Alteração apenas visual:
+- seta branca
+- velocidade branca
+- código ICAO visível por baixo do ícone
 
-Não é necessária chave nova.
-O WINDY_WEBCAMS_KEY continua apenas para Webcams.
-
-Camadas:
-- Previsão de vento
-- Estações de vento
-- Webcams (Windy)
+Sem SQL, sem novos secrets, sem alterações ao Worker.

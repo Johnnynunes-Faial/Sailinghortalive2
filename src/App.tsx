@@ -1556,6 +1556,9 @@ function PublicLiveView() {
             <div class="wind-station-speed">
               ${Math.round(station.windSpeed)}
             </div>
+            <div class="wind-station-code">
+              ${escapeHtml(station.id)}
+            </div>
           </div>
         `,
         iconSize: [42, 42],
