@@ -4,6 +4,7 @@ interface Env {
   TRACCAR_PASSWORD: string
   UNKNOWN_MONITOR_URL?: string
   UNKNOWN_MONITOR_KEY?: string
+  WINDY_WEBCAMS_KEY?: string
   DB: D1Database
 }
 
@@ -562,6 +563,211 @@ export default {
 
     if (url.pathname === '/api/health') {
       return json({ ok: true, service: 'sailinghortalive' })
+    }
+
+    if (
+      url.pathname === '/api/webcams' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const apiKey =
+          env.WINDY_WEBCAMS_KEY?.trim()
+
+        if (!apiKey) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Webcams Windy não configuradas.',
+            },
+            503,
+          )
+        }
+
+        const north =
+          Number(url.searchParams.get('north'))
+        const east =
+          Number(url.searchParams.get('east'))
+        const south =
+          Number(url.searchParams.get('south'))
+        const west =
+          Number(url.searchParams.get('west'))
+
+        if (
+          ![
+            north,
+            east,
+            south,
+            west,
+          ].every(Number.isFinite)
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Área do mapa inválida.',
+            },
+            400,
+          )
+        }
+
+        const params =
+          new URLSearchParams({
+            bbox:
+              `${north},${east},${south},${west}`,
+            include:
+              'images,location,player,urls',
+            lang: 'pt',
+            limit: '20',
+          })
+
+        const response = await fetch(
+          `https://api.windy.com/webcams/api/v3/webcams?${params.toString()}`,
+          {
+            headers: {
+              'X-WINDY-API-KEY':
+                apiKey,
+              Accept: 'application/json',
+            },
+          },
+        )
+
+        if (!response.ok) {
+          return json(
+            {
+              ok: false,
+              error:
+                `Windy Webcams HTTP ${response.status}`,
+            },
+            502,
+          )
+        }
+
+        const data =
+          await response.json() as {
+            webcams?: Array<{
+              webcamId?: number
+              status?: string
+              title?: string
+              lastUpdatedOn?: string
+              location?: {
+                city?: string
+                region?: string
+                country?: string
+                latitude?: number
+                longitude?: number
+              }
+              images?: {
+                current?: Record<
+                  string,
+                  string
+                >
+              }
+              player?: Record<
+                string,
+                string
+              >
+              urls?: {
+                detail?: string
+              }
+            }>
+          }
+
+        const webcams =
+          (data.webcams ?? [])
+            .filter((webcam) => {
+              const lat =
+                Number(
+                  webcam.location
+                    ?.latitude,
+                )
+              const lon =
+                Number(
+                  webcam.location
+                    ?.longitude,
+                )
+
+              return (
+                webcam.status !==
+                  'inactive' &&
+                Number.isFinite(lat) &&
+                Number.isFinite(lon)
+              )
+            })
+            .map((webcam) => {
+              const images =
+                webcam.images?.current ??
+                {}
+
+              const imageUrl =
+                images.preview ??
+                images.thumbnail ??
+                images.icon ??
+                Object.values(images)[0] ??
+                null
+
+              const playerUrl =
+                webcam.player?.live ??
+                webcam.player?.day ??
+                null
+
+              return {
+                id:
+                  Number(
+                    webcam.webcamId,
+                  ),
+                title:
+                  String(
+                    webcam.title ??
+                      'Webcam',
+                  ),
+                latitude:
+                  Number(
+                    webcam.location
+                      ?.latitude,
+                  ),
+                longitude:
+                  Number(
+                    webcam.location
+                      ?.longitude,
+                  ),
+                city:
+                  String(
+                    webcam.location
+                      ?.city ?? '',
+                  ),
+                region:
+                  String(
+                    webcam.location
+                      ?.region ?? '',
+                  ),
+                imageUrl,
+                detailUrl:
+                  webcam.urls?.detail ??
+                  null,
+                playerUrl,
+                lastUpdatedOn:
+                  webcam.lastUpdatedOn ??
+                  null,
+              }
+            })
+
+        return json({
+          ok: true,
+          webcams,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao carregar webcams.',
+          },
+          500,
+        )
+      }
     }
 
     if (

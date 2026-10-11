@@ -68,6 +68,19 @@ type MapWeather = {
   updatedAt: number
 }
 
+type MapWebcam = {
+  id: number
+  title: string
+  latitude: number
+  longitude: number
+  city: string
+  region: string
+  imageUrl: string | null
+  detailUrl: string | null
+  playerUrl: string | null
+  lastUpdatedOn: string | null
+}
+
 function windCardinal(degrees: number) {
   const directions = [
     'N', 'NE', 'E', 'SE',
@@ -266,6 +279,76 @@ function formatEtaHours(hours: number) {
   return `${wholeHours} h ${minutes} min`
 }
 
+function azoresLocalMinute() {
+  const parts =
+    new Intl.DateTimeFormat(
+      'en-CA',
+      {
+        timeZone: 'Atlantic/Azores',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      },
+    ).formatToParts(new Date())
+
+  const values =
+    Object.fromEntries(
+      parts
+        .filter(
+          (part) =>
+            part.type !== 'literal',
+        )
+        .map(
+          (part) => [
+            part.type,
+            part.value,
+          ],
+        ),
+    )
+
+  return (
+    `${values.year}-${values.month}-${values.day}` +
+    `T${values.hour}:${values.minute}`
+  )
+}
+
+function effectivePublicEventStatus(
+  event: EventItem,
+) {
+  if (event.status === 'completed') {
+    return 'completed'
+  }
+
+  const now = azoresLocalMinute()
+  const start =
+    event.start_time?.slice(0, 16) ??
+    null
+  const end =
+    event.end_time?.slice(0, 16) ??
+    null
+
+  if (start && now < start) {
+    return 'scheduled'
+  }
+
+  if (
+    start &&
+    now >= start &&
+    (!end || now < end)
+  ) {
+    return 'live'
+  }
+
+  if (end && now >= end) {
+    return 'completed'
+  }
+
+  return event.status
+}
+
 function PublicLiveView() {
   const mapElementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -274,8 +357,12 @@ function PublicLiveView() {
   const courseLayerRef = useRef<L.LayerGroup | null>(null)
   const trackLayerRef = useRef<L.LayerGroup | null>(null)
   const measurementLayerRef = useRef<L.LayerGroup | null>(null)
+  const webcamLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
   const weatherMoveTimerRef = useRef<number | null>(null)
+  const webcamMoveTimerRef = useRef<number | null>(null)
+  const webcamLastFetchRef = useRef(0)
+  const webcamLastKeyRef = useRef('')
   const weatherLastKeyRef = useRef('')
   const weatherLastFetchRef = useRef(0)
 
@@ -288,6 +375,10 @@ function PublicLiveView() {
   const [showCourse, setShowCourse] = useState(true)
   const [showNames, setShowNames] = useState(true)
   const [showWind, setShowWind] = useState(false)
+  const [showWebcams, setShowWebcams] = useState(false)
+  const [webcams, setWebcams] = useState<MapWebcam[]>([])
+  const [webcamsLoading, setWebcamsLoading] = useState(false)
+  const [webcamsError, setWebcamsError] = useState<string | null>(null)
   const [windyView, setWindyView] = useState({
     lat: 38.535,
     lon: -28.63,
@@ -438,6 +529,111 @@ function PublicLiveView() {
     }
   }, [])
 
+  async function loadWebcamsForMap(
+    force = false,
+  ) {
+    const map = mapRef.current
+
+    if (!map || !showWebcams) {
+      return
+    }
+
+    const bounds = map.getBounds()
+    const center = map.getCenter()
+    const zoom = map.getZoom()
+
+    const key = [
+      bounds.getNorth().toFixed(2),
+      bounds.getEast().toFixed(2),
+      bounds.getSouth().toFixed(2),
+      bounds.getWest().toFixed(2),
+      Math.round(zoom),
+    ].join(':')
+
+    const now = Date.now()
+
+    if (
+      !force &&
+      webcamLastKeyRef.current === key &&
+      now - webcamLastFetchRef.current <
+        15 * 1000
+    ) {
+      return
+    }
+
+    webcamLastKeyRef.current = key
+    webcamLastFetchRef.current = now
+    setWebcamsLoading(true)
+    setWebcamsError(null)
+
+    try {
+      const params = new URLSearchParams({
+        north:
+          bounds.getNorth().toString(),
+        east:
+          bounds.getEast().toString(),
+        south:
+          bounds.getSouth().toString(),
+        west:
+          bounds.getWest().toString(),
+      })
+
+      const response = await fetch(
+        `/api/webcams?${params.toString()}`,
+        {
+          cache: 'no-store',
+        },
+      )
+
+      const data =
+        await response.json() as {
+          ok?: boolean
+          error?: string
+          webcams?: MapWebcam[]
+        }
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Não foi possível carregar webcams.',
+        )
+      }
+
+      const nearest =
+        (data.webcams ?? [])
+          .map((webcam) => ({
+            webcam,
+            distance:
+              L.latLng(
+                center.lat,
+                center.lng,
+              ).distanceTo(
+                L.latLng(
+                  webcam.latitude,
+                  webcam.longitude,
+                ),
+              ),
+          }))
+          .sort(
+            (a, b) =>
+              a.distance - b.distance,
+          )
+          .slice(0, 5)
+          .map((item) => item.webcam)
+
+      setWebcams(nearest)
+    } catch (error) {
+      setWebcams([])
+      setWebcamsError(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao carregar webcams.',
+      )
+    } finally {
+      setWebcamsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!mapElementRef.current || mapRef.current) return
 
@@ -453,6 +649,8 @@ function PublicLiveView() {
     courseLayerRef.current = L.layerGroup().addTo(map)
     trackLayerRef.current = L.layerGroup().addTo(map)
     measurementLayerRef.current =
+      L.layerGroup().addTo(map)
+    webcamLayerRef.current =
       L.layerGroup().addTo(map)
 
     const initialCenter =
@@ -486,9 +684,33 @@ function PublicLiveView() {
         }, 800)
     }
 
+    const handleWebcamMove = () => {
+      if (!showWebcams) {
+        return
+      }
+
+      if (
+        webcamMoveTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          webcamMoveTimerRef.current,
+        )
+      }
+
+      webcamMoveTimerRef.current =
+        window.setTimeout(() => {
+          loadWebcamsForMap()
+        }, 1500)
+    }
+
     map.on(
       'moveend',
       handleWeatherMove,
+    )
+    map.on(
+      'moveend',
+      handleWebcamMove,
     )
 
     const weatherTimer =
@@ -508,6 +730,19 @@ function PublicLiveView() {
         'moveend',
         handleWeatherMove,
       )
+      map.off(
+        'moveend',
+        handleWebcamMove,
+      )
+
+      if (
+        webcamMoveTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          webcamMoveTimerRef.current,
+        )
+      }
 
       window.clearInterval(
         weatherTimer,
@@ -528,19 +763,69 @@ function PublicLiveView() {
   }, [])
 
   useEffect(() => {
+    if (!showWebcams) {
+      setWebcams([])
+      setWebcamsError(null)
+      webcamLayerRef.current?.clearLayers()
+      return
+    }
+
+    loadWebcamsForMap(true)
+  }, [showWebcams])
+
+  useEffect(() => {
     fetch('/api/events', { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
-        const loadedEvents = (data.events ?? []) as EventItem[]
+        const loadedEvents =
+          ((data.events ?? []) as EventItem[])
+            .map((event) => ({
+              ...event,
+              status:
+                effectivePublicEventStatus(
+                  event,
+                ),
+            }))
 
         const visibleEvents = loadedEvents.filter(
-          (event) => event.status !== 'completed',
+          (event) =>
+            event.status !== 'completed',
         )
 
         setEvents(visibleEvents)
 
       })
       .catch(() => setEvents([]))
+  }, [])
+
+  useEffect(() => {
+    const refreshStatuses = () => {
+      setEvents((current) =>
+        current
+          .map((event) => ({
+            ...event,
+            status:
+              effectivePublicEventStatus(
+                event,
+              ),
+          }))
+          .filter(
+            (event) =>
+              event.status !==
+              'completed',
+          ),
+      )
+    }
+
+    const timer =
+      window.setInterval(
+        refreshStatuses,
+        5000,
+      )
+
+    return () => {
+      window.clearInterval(timer)
+    }
   }, [])
 
   useEffect(() => {
@@ -688,8 +973,8 @@ function PublicLiveView() {
     loadTracks()
     const trackRefreshMs =
       selectedEventId === 'general'
-        ? 30000
-        : 20000
+        ? 15000
+        : 5000
 
     const timer = window.setInterval(
       loadTracks,
@@ -1117,6 +1402,78 @@ function PublicLiveView() {
     measurementTarget,
   ])
 
+  useEffect(() => {
+    const layer = webcamLayerRef.current
+
+    if (!layer) return
+
+    layer.clearLayers()
+
+    if (!showWebcams) {
+      return
+    }
+
+    for (const webcam of webcams) {
+      const icon = L.divIcon({
+        className:
+          'webcam-marker-wrapper',
+        html:
+          '<div class="webcam-marker">📷</div>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      })
+
+      const marker =
+        L.marker(
+          [
+            webcam.latitude,
+            webcam.longitude,
+          ],
+          {
+            icon,
+            riseOnHover: true,
+          },
+        ).addTo(layer)
+
+      const place =
+        [
+          webcam.city,
+          webcam.region,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+
+      const image =
+        webcam.imageUrl
+          ? `<img class="webcam-popup-image" src="${escapeHtml(webcam.imageUrl)}" alt="${escapeHtml(webcam.title)}">`
+          : ''
+
+      const detail =
+        webcam.detailUrl
+          ? `<a href="${escapeHtml(webcam.detailUrl)}" target="_blank" rel="noopener noreferrer">Abrir webcam</a>`
+          : ''
+
+      marker.bindPopup(`
+        <div class="webcam-popup">
+          <strong>${escapeHtml(webcam.title)}</strong>
+          ${
+            place
+              ? `<div class="webcam-popup-place">${escapeHtml(place)}</div>`
+              : ''
+          }
+          ${image}
+          ${detail}
+          <div class="webcam-popup-credit">
+            Webcams provided by Windy.com
+          </div>
+        </div>
+      `)
+    }
+  }, [
+    webcams,
+    showWebcams,
+  ])
+
   function showAll() {
     const map = mapRef.current
     if (!map) return
@@ -1541,6 +1898,31 @@ function PublicLiveView() {
                 }
               />
             </label>
+
+            <label className="layer-row">
+              <span>
+                Webcams (Windy)
+                {webcamsLoading
+                  ? ' · a carregar…'
+                  : ''}
+              </span>
+              <input
+                type="checkbox"
+                checked={showWebcams}
+                onChange={(event) =>
+                  setShowWebcams(
+                    event.target.checked,
+                  )
+                }
+              />
+            </label>
+
+            {showWebcams &&
+              webcamsError && (
+                <div className="webcams-layer-error">
+                  {webcamsError}
+                </div>
+              )}
           </div>
         )}
 

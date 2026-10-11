@@ -1,18 +1,24 @@
-v0.20.0 — MEDIÇÃO LIVE
+v0.22.0 — WEBCAMS WINDY
 
-Publicar como nas versões anteriores.
+ANTES DE PUBLICAR / PARA A CAMADA FUNCIONAR:
 
-No GitHub pelo browser:
+1. Criar uma chave gratuita Webcams API em:
+   https://api.windy.com/
+
+2. No Cloudflare:
+   Workers & Pages -> sailinghortalive2 -> Settings -> Variables and Secrets
+
+3. Adicionar como SECRET:
+   WINDY_WEBCAMS_KEY
+   valor = a chave obtida no Windy
+
+IMPORTANTE:
+- Não colocar a chave no GitHub nem no wrangler.jsonc.
+- A camada só faz pedidos quando é ativada.
+- Não há polling contínuo.
+- Não há SQL/D1 adicional.
+
+PUBLICAÇÃO:
 - src/ -> pasta src/
 - public/ -> pasta public/
 - ficheiros da raiz -> raiz
-
-Utilização:
-1. Clicar num barco.
-2. Clicar "Medir distância".
-3. Clicar num ponto do mapa OU noutro barco.
-4. Ver distância NM, rumo e ETA à velocidade atual.
-5. "Novo destino" ou "Limpar".
-
-Não há alterações à base de dados.
-Não há novos pedidos periódicos ao servidor.

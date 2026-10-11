@@ -2406,3 +2406,56 @@ button {
     max-width: 340px;
   }
 }
+
+
+/* v0.22 — Webcams Windy */
+.webcam-marker-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.webcam-marker {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(20, 34, 48, 0.9);
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.webcam-popup {
+  min-width: 190px;
+  max-width: 240px;
+}
+
+.webcam-popup-place {
+  margin: 3px 0 7px;
+  font-size: 0.8rem;
+  opacity: 0.72;
+}
+
+.webcam-popup-image {
+  display: block;
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  margin: 7px 0;
+  border-radius: 7px;
+}
+
+.webcam-popup-credit {
+  margin-top: 7px;
+  font-size: 0.7rem;
+  opacity: 0.65;
+}
+
+.webcams-layer-error {
+  padding: 7px 10px;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  opacity: 0.78;
+}
