@@ -1,11 +1,15 @@
-# Sailing Horta Live 2 — v0.23.1
+# Sailing Horta Live 2 — v0.23.2
 
-Correção visual da camada **Estações de vento**:
+Ajustes na camada **Estações de vento**:
 
-- seta branca;
-- velocidade em branco;
-- círculo escuro com melhor contraste;
-- código ICAO da estação (ex.: LPHR, LPPI) mostrado numa pequena etiqueta abaixo;
-- mantém o popup com vento, rajada, hora, temperatura e METAR.
+- a seta passa a mostrar **para onde o vento está a soprar**;
+- o valor METAR continua a representar a direção meteorológica **de onde o vento vem**;
+- no popup passa a aparecer "Vento de: XXX°";
+- seta em azul/ciano;
+- velocidade em branco, para não se sobreporem visualmente.
 
-Sem alterações à API, Worker ou base de dados.
+Exemplo:
+- METAR 180° = vento de Sul;
+- seta aponta para Norte.
+
+Sem alterações ao Worker, API ou base de dados.

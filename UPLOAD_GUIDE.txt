@@ -1,10 +1,9 @@
-v0.23.1 — ÍCONES DAS ESTAÇÕES DE VENTO
-
-Publicar como nas versões anteriores.
+v0.23.2 — SETA DAS ESTAÇÕES DE VENTO
 
 Alteração apenas visual:
-- seta branca
+- seta = direção PARA ONDE o vento sopra
+- popup = direção DE ONDE o vento vem (padrão METAR)
+- seta azul/ciano
 - velocidade branca
-- código ICAO visível por baixo do ícone
 
-Sem SQL, sem novos secrets, sem alterações ao Worker.
+Sem SQL, sem secrets novos, sem alterações ao Worker.

@@ -2564,3 +2564,18 @@ button {
   white-space: nowrap;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
+
+
+/* v0.23.2 — direção visual do vento e contraste */
+.wind-station-arrow {
+  color: #44d7ff;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.wind-station-speed {
+  color: #ffffff;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.75);
+}

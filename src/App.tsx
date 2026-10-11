@@ -1551,7 +1551,7 @@ function PublicLiveView() {
           <div class="wind-station-marker">
             <div
               class="wind-station-arrow"
-              style="transform: rotate(${station.windDirection ?? 0}deg)"
+              style="transform: rotate(${((station.windDirection ?? 0) + 180) % 360}deg)"
             >↑</div>
             <div class="wind-station-speed">
               ${Math.round(station.windSpeed)}
@@ -1587,7 +1587,7 @@ function PublicLiveView() {
       marker.bindPopup(`
         <div class="wind-station-popup">
           <strong>${escapeHtml(station.name)} · ${escapeHtml(station.id)}</strong>
-          <div>Vento: ${escapeHtml(directionLabel)} · ${station.windSpeed.toFixed(0)} kn</div>
+          <div>Vento de: ${escapeHtml(directionLabel)} · ${station.windSpeed.toFixed(0)} kn</div>
           <div>Rajada: ${
             station.windGust > 0
               ? `${station.windGust.toFixed(0)} kn`
