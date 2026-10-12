@@ -1,15 +1,12 @@
-# Sailing Horta Live 2 — v0.23.2
+# Sailing Horta Live 2 — v0.24.0
 
-Ajustes na camada **Estações de vento**:
+## Polling adaptativo do Live
 
-- a seta passa a mostrar **para onde o vento está a soprar**;
-- o valor METAR continua a representar a direção meteorológica **de onde o vento vem**;
-- no popup passa a aparecer "Vento de: XXX°";
-- seta em azul/ciano;
-- velocidade em branco, para não se sobreporem visualmente.
+- Vista Geral sem nenhuma regata em direto: `/api/live` a cada 10 segundos.
+- Vista Geral com pelo menos uma regata em direto: 2 segundos.
+- Regata selecionada: 2 segundos.
 
-Exemplo:
-- METAR 180° = vento de Sul;
-- seta aponta para Norte.
+Os dispositivos continuam a transmitir normalmente para o Traccar. Esta alteração
+reduz apenas a frequência com que o browser consulta o Live quando não há regata em direto.
 
-Sem alterações ao Worker, API ou base de dados.
+Mantém as restantes funcionalidades da v0.23.2.

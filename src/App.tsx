@@ -1050,13 +1050,30 @@ function PublicLiveView() {
     }
 
     loadLive()
-    const timer = window.setInterval(loadLive, 2000)
+
+    const hasAnyLiveEvent =
+      events.some(
+        (event) =>
+          event.status === 'live',
+      )
+
+    const liveRefreshMs =
+      selectedEventId === 'general' &&
+      !hasAnyLiveEvent
+        ? 10000
+        : 2000
+
+    const timer =
+      window.setInterval(
+        loadLive,
+        liveRefreshMs,
+      )
 
     return () => {
       active = false
       window.clearInterval(timer)
     }
-  }, [selectedEventId])
+  }, [selectedEventId, events])
 
   useEffect(() => {
     if (

@@ -1,9 +1,11 @@
-v0.23.2 — SETA DAS ESTAÇÕES DE VENTO
+v0.24.0 — POLLING ADAPTATIVO DO LIVE
 
-Alteração apenas visual:
-- seta = direção PARA ONDE o vento sopra
-- popup = direção DE ONDE o vento vem (padrão METAR)
-- seta azul/ciano
-- velocidade branca
+Publicar como nas versões anteriores.
 
-Sem SQL, sem secrets novos, sem alterações ao Worker.
+Comportamento:
+- Vista Geral + sem regata live: 10 s
+- Vista Geral + existe regata live: 2 s
+- Regata selecionada: 2 s
+
+Sem alterações à base de dados.
+Sem novos secrets.
