@@ -329,6 +329,22 @@ function azoresLocalMinute() {
   )
 }
 
+function formatPublicEventDate(
+  value: string | null,
+) {
+  if (!value) return ''
+
+  const datePart = value.slice(0, 10)
+  const [year, month, day] =
+    datePart.split('-')
+
+  if (!year || !month || !day) {
+    return ''
+  }
+
+  return `${day}/${month}/${year}`
+}
+
 function effectivePublicEventStatus(
   event: EventItem,
 ) {
@@ -1845,7 +1861,12 @@ function PublicLiveView() {
               <option key={event.id} value={event.id}>
                 {event.status === 'live'
                   ? `● EM DIRETO — ${event.name}`
-                  : event.name}
+                  : event.status === 'scheduled' &&
+                      event.start_time
+                    ? `${event.name} — ${formatPublicEventDate(
+                        event.start_time,
+                      )}`
+                    : event.name}
               </option>
             ))}
           </select>
