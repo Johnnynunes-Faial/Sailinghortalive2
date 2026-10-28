@@ -3968,7 +3968,7 @@ function AdminView() {
           </div>
         </section>
 
-        <section className="admin-card">
+        <section className="admin-card boat-settings-card">
           <h2>Barcos · configuração</h2>
           <BoatSettingsAdmin />
         </section>
