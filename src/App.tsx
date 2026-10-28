@@ -50,12 +50,32 @@ type CourseLine = {
   b_longitude: number
 }
 
+type RaceTimingEntry = {
+  deviceId: number
+  boatName: string
+  skipper: string | null
+  handicap: number
+  color: string | null
+  speed: number | null
+  finished: boolean
+  finishTime: string | null
+  elapsedSeconds: number | null
+  correctedSeconds: number | null
+}
+
+type RaceTimingData = {
+  startUtc: string | null
+  finishLineReady: boolean
+  entries: RaceTimingEntry[]
+}
+
 type LiveResponse = {
   ok: boolean
   updatedAt: string
   boats: Boat[]
   course?: CoursePoint[]
   lines?: CourseLine[]
+  raceTiming?: RaceTimingData | null
 }
 
 type MapWeather = {
@@ -116,6 +136,8 @@ type AdminDevice = {
   status: string
   lastUpdate: string | null
   color?: string | null
+  skipper?: string | null
+  timeHandicap?: number | null
 }
 
 type LibraryBuoy = {
@@ -293,6 +315,44 @@ function formatEtaHours(hours: number) {
   return `${wholeHours} h ${minutes} min`
 }
 
+function formatRaceDuration(
+  seconds: number,
+) {
+  const safeSeconds =
+    Math.max(
+      0,
+      Math.round(
+        Number.isFinite(seconds)
+          ? seconds
+          : 0,
+      ),
+    )
+
+  const hours =
+    Math.floor(
+      safeSeconds / 3600,
+    )
+
+  const minutes =
+    Math.floor(
+      (safeSeconds % 3600) /
+        60,
+    )
+
+  const secs =
+    safeSeconds % 60
+
+  return [
+    hours,
+    minutes,
+    secs,
+  ]
+    .map((value) =>
+      String(value).padStart(2, '0'),
+    )
+    .join(':')
+}
+
 function azoresLocalMinute() {
   const parts =
     new Intl.DateTimeFormat(
@@ -431,12 +491,92 @@ function PublicLiveView() {
   const [measureMode, setMeasureMode] = useState(false)
   const [measurementTarget, setMeasurementTarget] =
     useState<LiveMeasurementTarget | null>(null)
+  const [raceTiming, setRaceTiming] =
+    useState<RaceTimingData | null>(null)
+  const [raceClock, setRaceClock] =
+    useState(Date.now())
 
   const selectedBoat =
     boats.find(
       (boat) =>
         boat.id === selectedBoatId,
     ) ?? null
+
+  const selectedPublicEvent =
+    events.find(
+      (event) =>
+        event.id === selectedEventId,
+    ) ?? null
+
+  const raceTimingVisible =
+    selectedEventId !== 'general' &&
+    selectedPublicEvent?.status === 'live' &&
+    raceTiming !== null
+
+  const raceRanking =
+    useMemo(() => {
+      if (
+        !raceTiming ||
+        !raceTiming.startUtc
+      ) {
+        return []
+      }
+
+      const startMs =
+        new Date(
+          raceTiming.startUtc,
+        ).getTime()
+
+      if (!Number.isFinite(startMs)) {
+        return []
+      }
+
+      return raceTiming.entries
+        .map((entry) => {
+          const runningSeconds =
+            Math.max(
+              0,
+              (
+                raceClock -
+                startMs
+              ) /
+                1000,
+            )
+
+          const correctedSeconds =
+            entry.finished &&
+            entry.correctedSeconds !== null
+              ? entry.correctedSeconds
+              : runningSeconds *
+                entry.handicap
+
+          return {
+            ...entry,
+            displayCorrectedSeconds:
+              correctedSeconds,
+          }
+        })
+        .sort((a, b) => {
+          const timeDiff =
+            a.displayCorrectedSeconds -
+            b.displayCorrectedSeconds
+
+          if (Math.abs(timeDiff) > 0.01) {
+            return timeDiff
+          }
+
+          return a.boatName.localeCompare(
+            b.boatName,
+            'pt',
+            {
+              sensitivity: 'base',
+            },
+          )
+        })
+    }, [
+      raceTiming,
+      raceClock,
+    ])
 
   const tracksAvailable =
     selectedEventId === 'general' ||
@@ -445,6 +585,30 @@ function PublicLiveView() {
         event.id === selectedEventId &&
         event.status === 'live',
     )
+
+  useEffect(() => {
+    if (!raceTimingVisible) {
+      return
+    }
+
+    setRaceClock(Date.now())
+
+    const timer =
+      window.setInterval(
+        () =>
+          setRaceClock(
+            Date.now(),
+          ),
+        1000,
+      )
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [
+    raceTimingVisible,
+    selectedEventId,
+  ])
 
   async function loadWeatherForMap(
     lat: number,
@@ -1054,6 +1218,9 @@ function PublicLiveView() {
         setBoats(data.boats ?? [])
         setCourse(data.course ?? [])
         setLines(data.lines ?? [])
+        setRaceTiming(
+          data.raceTiming ?? null,
+        )
         setConnected(data.ok === true)
       } catch {
         if (active) {
@@ -1061,6 +1228,7 @@ function PublicLiveView() {
           setBoats([])
           setCourse([])
           setLines([])
+          setRaceTiming(null)
         }
       }
     }
