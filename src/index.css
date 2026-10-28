@@ -2752,6 +2752,24 @@ button {
   color: #187744;
 }
 
+/* v0.25.1 — layout do Admin para configuração dos barcos */
+.boat-settings-card {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.boat-settings-card .boat-colors-panel,
+.boat-settings-card .boat-color-list,
+.boat-settings-card .boat-settings-row {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .boat-settings-card {
+    grid-column: auto;
+  }
+}
+
 /* v0.25 — configuração global dos barcos */
 .boat-settings-row {
   display: grid;
