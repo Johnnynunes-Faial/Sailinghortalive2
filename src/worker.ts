@@ -165,10 +165,123 @@ async function ensureBoatSettingsTable(
     CREATE TABLE IF NOT EXISTS boat_settings (
       traccar_device_id INTEGER PRIMARY KEY,
       color TEXT,
+      skipper TEXT,
+      time_handicap REAL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `).run()
+
+  const columns = await env.DB.prepare(`
+    PRAGMA table_info(boat_settings)
+  `).all<{ name: string }>()
+
+  const names = new Set(
+    (columns.results ?? []).map(
+      (column) => column.name,
+    ),
+  )
+
+  if (!names.has('skipper')) {
+    await env.DB.prepare(`
+      ALTER TABLE boat_settings
+      ADD COLUMN skipper TEXT
+    `).run()
+  }
+
+  if (!names.has('time_handicap')) {
+    await env.DB.prepare(`
+      ALTER TABLE boat_settings
+      ADD COLUMN time_handicap REAL
+    `).run()
+  }
+}
+
+async function ensureRaceTimingTables(
+  env: Env,
+) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS race_live_state (
+      event_id TEXT NOT NULL,
+      traccar_device_id INTEGER NOT NULL,
+      last_latitude REAL NOT NULL,
+      last_longitude REAL NOT NULL,
+      last_fix_time TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (
+        event_id,
+        traccar_device_id
+      )
+    )
+  `).run()
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS race_finishes (
+      event_id TEXT NOT NULL,
+      traccar_device_id INTEGER NOT NULL,
+      finish_time TEXT NOT NULL,
+      elapsed_seconds REAL NOT NULL,
+      corrected_seconds REAL NOT NULL,
+      handicap REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (
+        event_id,
+        traccar_device_id
+      )
+    )
+  `).run()
+}
+
+function segmentIntersectionFraction(
+  aLat: number,
+  aLon: number,
+  bLat: number,
+  bLon: number,
+  cLat: number,
+  cLon: number,
+  dLat: number,
+  dLon: number,
+) {
+  const rx = bLon - aLon
+  const ry = bLat - aLat
+  const sx = dLon - cLon
+  const sy = dLat - cLat
+
+  const cross = (
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ) => ax * by - ay * bx
+
+  const denominator =
+    cross(rx, ry, sx, sy)
+
+  if (Math.abs(denominator) < 1e-12) {
+    return null
+  }
+
+  const qpx = cLon - aLon
+  const qpy = cLat - aLat
+
+  const t =
+    cross(qpx, qpy, sx, sy) /
+    denominator
+
+  const u =
+    cross(qpx, qpy, rx, ry) /
+    denominator
+
+  if (
+    t < 0 ||
+    t > 1 ||
+    u < 0 ||
+    u > 1
+  ) {
+    return null
+  }
+
+  return t
 }
 
 
@@ -1577,17 +1690,67 @@ export default {
     if (liveEventMatch && request.method === 'GET') {
       try {
         const eventId = liveEventMatch[1]
+
+        const event = await env.DB.prepare(`
+          SELECT
+            id,
+            name,
+            start_time,
+            end_time,
+            status
+          FROM events
+          WHERE id = ?
+        `).bind(eventId).first<{
+          id: string
+          name: string
+          start_time: string | null
+          end_time: string | null
+          status: string
+        }>()
+
+        if (!event) {
+          return json(
+            {
+              ok: false,
+              error: 'Regata não encontrada',
+            },
+            404,
+          )
+        }
+
+        const eventStatus =
+          effectiveEventStatus(event)
+
         const participants = await env.DB.prepare(`
-          SELECT traccar_device_id
+          SELECT
+            traccar_device_id,
+            boat_name
           FROM event_participants
           WHERE event_id = ?
-        `).bind(eventId).all<{ traccar_device_id: number }>()
+          ORDER BY boat_name COLLATE NOCASE ASC
+        `).bind(eventId).all<{
+          traccar_device_id: number
+          boat_name: string
+        }>()
+
+        const participantRows =
+          participants.results ?? []
 
         const allowedIds = new Set(
-          (participants.results ?? []).map((row) => Number(row.traccar_device_id)),
+          participantRows.map(
+            (row) =>
+              Number(row.traccar_device_id),
+          ),
         )
 
-        const boats = (await getActiveBoats(env)).filter((boat) => allowedIds.has(boat.id))
+        const allActiveBoats =
+          await getActiveBoats(env)
+
+        const boats =
+          allActiveBoats.filter(
+            (boat) =>
+              allowedIds.has(boat.id),
+          )
 
         await ensureCourseRoundingColumn(env)
 
@@ -1612,15 +1775,429 @@ export default {
           FROM course_lines
           WHERE event_id = ?
           ORDER BY CASE line_type WHEN 'start' THEN 0 ELSE 1 END
-        `).bind(eventId).all()
+        `).bind(eventId).all<{
+          id: number
+          event_id: string
+          line_type: 'start' | 'finish'
+          a_latitude: number
+          a_longitude: number
+          b_latitude: number
+          b_longitude: number
+        }>()
+
+        let raceTiming: {
+          startUtc: string | null
+          finishLineReady: boolean
+          entries: Array<{
+            deviceId: number
+            boatName: string
+            skipper: string | null
+            handicap: number
+            color: string | null
+            speed: number | null
+            finished: boolean
+            finishTime: string | null
+            elapsedSeconds: number | null
+            correctedSeconds: number | null
+          }>
+        } | null = null
+
+        if (eventStatus === 'live') {
+          await ensureBoatSettingsTable(env)
+          await ensureRaceTimingTables(env)
+
+          const startUtc =
+            azoresLocalToUtcIso(
+              event.start_time,
+            )
+
+          const finishLine =
+            (lines.results ?? []).find(
+              (line) =>
+                line.line_type === 'finish',
+            ) ?? null
+
+          const settings =
+            await env.DB.prepare(`
+              SELECT
+                traccar_device_id,
+                color,
+                skipper,
+                time_handicap
+              FROM boat_settings
+            `).all<{
+              traccar_device_id: number
+              color: string | null
+              skipper: string | null
+              time_handicap: number | null
+            }>()
+
+          const settingsByDevice =
+            new Map(
+              (settings.results ?? []).map(
+                (row) => [
+                  Number(
+                    row.traccar_device_id,
+                  ),
+                  row,
+                ],
+              ),
+            )
+
+          const finishRows =
+            await env.DB.prepare(`
+              SELECT
+                traccar_device_id,
+                finish_time,
+                elapsed_seconds,
+                corrected_seconds,
+                handicap
+              FROM race_finishes
+              WHERE event_id = ?
+            `).bind(eventId).all<{
+              traccar_device_id: number
+              finish_time: string
+              elapsed_seconds: number
+              corrected_seconds: number
+              handicap: number
+            }>()
+
+          const finishByDevice =
+            new Map(
+              (finishRows.results ?? []).map(
+                (row) => [
+                  Number(
+                    row.traccar_device_id,
+                  ),
+                  row,
+                ],
+              ),
+            )
+
+          const stateRows =
+            await env.DB.prepare(`
+              SELECT
+                traccar_device_id,
+                last_latitude,
+                last_longitude,
+                last_fix_time
+              FROM race_live_state
+              WHERE event_id = ?
+            `).bind(eventId).all<{
+              traccar_device_id: number
+              last_latitude: number
+              last_longitude: number
+              last_fix_time: string
+            }>()
+
+          const stateByDevice =
+            new Map(
+              (stateRows.results ?? []).map(
+                (row) => [
+                  Number(
+                    row.traccar_device_id,
+                  ),
+                  row,
+                ],
+              ),
+            )
+
+          const activeBoatByDevice =
+            new Map(
+              boats.map(
+                (boat) => [
+                  boat.id,
+                  boat,
+                ],
+              ),
+            )
+
+          const startMs =
+            startUtc
+              ? new Date(startUtc).getTime()
+              : Number.NaN
+
+          const entries = []
+
+          for (
+            const participant of
+            participantRows
+          ) {
+            const deviceId =
+              Number(
+                participant.traccar_device_id,
+              )
+
+            const setting =
+              settingsByDevice.get(
+                deviceId,
+              )
+
+            const handicapValue =
+              Number(
+                setting?.time_handicap,
+              )
+
+            const handicap =
+              Number.isFinite(
+                handicapValue,
+              ) &&
+              handicapValue > 0
+                ? handicapValue
+                : 1
+
+            const boat =
+              activeBoatByDevice.get(
+                deviceId,
+              )
+
+            let finish =
+              finishByDevice.get(
+                deviceId,
+              ) ?? null
+
+            if (
+              !finish &&
+              finishLine &&
+              boat?.position &&
+              Number.isFinite(startMs)
+            ) {
+              const currentFix =
+                boat.position.fixTime
+
+              const currentMs =
+                currentFix
+                  ? new Date(
+                      currentFix,
+                    ).getTime()
+                  : Number.NaN
+
+              const previous =
+                stateByDevice.get(
+                  deviceId,
+                )
+
+              if (
+                previous &&
+                Number.isFinite(
+                  currentMs,
+                )
+              ) {
+                const previousMs =
+                  new Date(
+                    previous.last_fix_time,
+                  ).getTime()
+
+                const gapMs =
+                  currentMs -
+                  previousMs
+
+                if (
+                  Number.isFinite(
+                    previousMs,
+                  ) &&
+                  previousMs >= startMs &&
+                  currentMs >= startMs &&
+                  gapMs > 0 &&
+                  gapMs <= 60 * 1000
+                ) {
+                  const fraction =
+                    segmentIntersectionFraction(
+                      previous.last_latitude,
+                      previous.last_longitude,
+                      boat.position.latitude,
+                      boat.position.longitude,
+                      Number(
+                        finishLine.a_latitude,
+                      ),
+                      Number(
+                        finishLine.a_longitude,
+                      ),
+                      Number(
+                        finishLine.b_latitude,
+                      ),
+                      Number(
+                        finishLine.b_longitude,
+                      ),
+                    )
+
+                  if (
+                    fraction !== null
+                  ) {
+                    const finishMs =
+                      previousMs +
+                      gapMs *
+                        fraction
+
+                    const elapsedSeconds =
+                      Math.max(
+                        0,
+                        (
+                          finishMs -
+                          startMs
+                        ) /
+                          1000,
+                      )
+
+                    const correctedSeconds =
+                      elapsedSeconds *
+                      handicap
+
+                    const finishTime =
+                      new Date(
+                        finishMs,
+                      ).toISOString()
+
+                    await env.DB.prepare(`
+                      INSERT OR IGNORE INTO race_finishes (
+                        event_id,
+                        traccar_device_id,
+                        finish_time,
+                        elapsed_seconds,
+                        corrected_seconds,
+                        handicap
+                      )
+                      VALUES (?, ?, ?, ?, ?, ?)
+                    `).bind(
+                      eventId,
+                      deviceId,
+                      finishTime,
+                      elapsedSeconds,
+                      correctedSeconds,
+                      handicap,
+                    ).run()
+
+                    finish = {
+                      traccar_device_id:
+                        deviceId,
+                      finish_time:
+                        finishTime,
+                      elapsed_seconds:
+                        elapsedSeconds,
+                      corrected_seconds:
+                        correctedSeconds,
+                      handicap,
+                    }
+
+                    finishByDevice.set(
+                      deviceId,
+                      finish,
+                    )
+                  }
+                }
+              }
+
+              if (
+                Number.isFinite(
+                  currentMs,
+                )
+              ) {
+                const previousMs =
+                  previous
+                    ? new Date(
+                        previous.last_fix_time,
+                      ).getTime()
+                    : Number.NaN
+
+                const shouldStore =
+                  !Number.isFinite(
+                    previousMs,
+                  ) ||
+                  currentMs -
+                    previousMs >=
+                    5000 ||
+                  finish !== null
+
+                if (shouldStore) {
+                  await env.DB.prepare(`
+                    INSERT INTO race_live_state (
+                      event_id,
+                      traccar_device_id,
+                      last_latitude,
+                      last_longitude,
+                      last_fix_time,
+                      updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT (
+                      event_id,
+                      traccar_device_id
+                    )
+                    DO UPDATE SET
+                      last_latitude =
+                        excluded.last_latitude,
+                      last_longitude =
+                        excluded.last_longitude,
+                      last_fix_time =
+                        excluded.last_fix_time,
+                      updated_at =
+                        CURRENT_TIMESTAMP
+                  `).bind(
+                    eventId,
+                    deviceId,
+                    boat.position.latitude,
+                    boat.position.longitude,
+                    currentFix,
+                  ).run()
+                }
+              }
+            }
+
+            entries.push({
+              deviceId,
+              boatName:
+                participant.boat_name,
+              skipper:
+                setting?.skipper ??
+                null,
+              handicap,
+              color:
+                setting?.color ??
+                null,
+              speed:
+                boat?.position
+                  ? Number(
+                      boat.position.speed ??
+                        0,
+                    )
+                  : null,
+              finished:
+                finish !== null,
+              finishTime:
+                finish?.finish_time ??
+                null,
+              elapsedSeconds:
+                finish
+                  ? Number(
+                      finish.elapsed_seconds,
+                    )
+                  : null,
+              correctedSeconds:
+                finish
+                  ? Number(
+                      finish.corrected_seconds,
+                    )
+                  : null,
+            })
+          }
+
+          raceTiming = {
+            startUtc,
+            finishLineReady:
+              finishLine !== null,
+            entries,
+          }
+        }
 
         return json({
           ok: true,
           eventId,
+          eventStatus,
           updatedAt: new Date().toISOString(),
           boats,
           course: course.results ?? [],
           lines: lines.results ?? [],
+          raceTiming,
         })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro Live da regata' }, 500)
@@ -1745,11 +2322,14 @@ export default {
         const eventId = adminEventMatch[1]
 
         await ensureCourseLinesTable(env)
+        await ensureRaceTimingTables(env)
 
         await env.DB.batch([
           env.DB.prepare(`DELETE FROM event_participants WHERE event_id = ?`).bind(eventId),
           env.DB.prepare(`DELETE FROM course_points WHERE event_id = ?`).bind(eventId),
           env.DB.prepare(`DELETE FROM course_lines WHERE event_id = ?`).bind(eventId),
+          env.DB.prepare(`DELETE FROM race_live_state WHERE event_id = ?`).bind(eventId),
+          env.DB.prepare(`DELETE FROM race_finishes WHERE event_id = ?`).bind(eventId),
           env.DB.prepare(`DELETE FROM events WHERE id = ?`).bind(eventId),
         ])
 
@@ -1769,34 +2349,184 @@ export default {
         await ensureBoatSettingsTable(env)
 
         const settings = await env.DB.prepare(`
-          SELECT traccar_device_id, color
+          SELECT
+            traccar_device_id,
+            color,
+            skipper,
+            time_handicap
           FROM boat_settings
         `).all<{
           traccar_device_id: number
           color: string | null
+          skipper: string | null
+          time_handicap: number | null
         }>()
 
-        const colorByDevice = new Map(
+        const settingsByDevice = new Map(
           (settings.results ?? []).map((row) => [
             Number(row.traccar_device_id),
-            row.color,
+            row,
           ]),
         )
 
         const cleanDevices = devices
-          .map((device) => ({
-            id: device.id,
-            name: device.name,
-            uniqueId: device.uniqueId,
-            status: device.status ?? 'unknown',
-            lastUpdate: device.lastUpdate ?? null,
-            color: colorByDevice.get(device.id) ?? null,
-          }))
+          .map((device) => {
+            const setting =
+              settingsByDevice.get(device.id)
+
+            return {
+              id: device.id,
+              name: device.name,
+              uniqueId: device.uniqueId,
+              status: device.status ?? 'unknown',
+              lastUpdate: device.lastUpdate ?? null,
+              color: setting?.color ?? null,
+              skipper: setting?.skipper ?? null,
+              timeHandicap:
+                setting?.time_handicap ?? 1,
+            }
+          })
           .sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }))
 
         return json({ ok: true, devices: cleanDevices })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao carregar barcos' }, 500)
+      }
+    }
+
+    const deviceSettingsMatch = url.pathname.match(
+      /^\/admin\/api\/devices\/(\d+)\/settings$/,
+    )
+
+    if (deviceSettingsMatch && request.method === 'PUT') {
+      try {
+        const deviceId =
+          Number(deviceSettingsMatch[1])
+
+        if (
+          !Number.isInteger(deviceId) ||
+          deviceId <= 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error: 'ID de barco inválido',
+            },
+            400,
+          )
+        }
+
+        const body =
+          await request.json() as {
+            color?: string | null
+            skipper?: string | null
+            timeHandicap?: number | null
+          }
+
+        const color =
+          body.color == null ||
+          body.color === ''
+            ? null
+            : String(body.color).trim()
+
+        if (
+          color !== null &&
+          !/^#[0-9a-fA-F]{6}$/.test(color)
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Cor inválida. Usa o formato #RRGGBB.',
+            },
+            400,
+          )
+        }
+
+        const skipperText =
+          body.skipper == null
+            ? ''
+            : String(
+                body.skipper,
+              ).trim()
+
+        const skipper =
+          skipperText
+            ? skipperText.slice(0, 100)
+            : null
+
+        const handicapRaw =
+          Number(
+            body.timeHandicap,
+          )
+
+        const timeHandicap =
+          Number.isFinite(
+            handicapRaw,
+          )
+            ? handicapRaw
+            : 1
+
+        if (
+          timeHandicap < 0.1 ||
+          timeHandicap > 3
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'O handicap deve estar entre 0,100 e 3,000.',
+            },
+            400,
+          )
+        }
+
+        await ensureBoatSettingsTable(env)
+
+        await env.DB.prepare(`
+          INSERT INTO boat_settings (
+            traccar_device_id,
+            color,
+            skipper,
+            time_handicap,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(traccar_device_id)
+          DO UPDATE SET
+            color = excluded.color,
+            skipper = excluded.skipper,
+            time_handicap =
+              excluded.time_handicap,
+            updated_at =
+              CURRENT_TIMESTAMP
+        `).bind(
+          deviceId,
+          color
+            ? color.toLowerCase()
+            : null,
+          skipper,
+          timeHandicap,
+        ).run()
+
+        return json({
+          ok: true,
+          deviceId,
+          color:
+            color
+              ? color.toLowerCase()
+              : null,
+          skipper,
+          timeHandicap,
+        })
+      } catch (error) {
+        return json({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Erro ao guardar configuração do barco',
+        }, 500)
       }
     }
 
