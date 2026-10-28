@@ -2226,66 +2226,64 @@ export default {
                         fraction
 
                     if (
-                      finishMs <
+                      finishMs >=
                       finishDetectionStartMs
                     ) {
-                      continue
-                    }
+                      const elapsedSeconds =
+                        Math.max(
+                          0,
+                          (
+                            finishMs -
+                            startMs
+                          ) /
+                            1000,
+                        )
 
-                    const elapsedSeconds =
-                      Math.max(
-                        0,
-                        (
-                          finishMs -
-                          startMs
-                        ) /
-                          1000,
-                      )
-
-                    const correctedSeconds =
-                      elapsedSeconds *
-                      handicap
-
-                    const finishTime =
-                      new Date(
-                        finishMs,
-                      ).toISOString()
-
-                    await env.DB.prepare(`
-                      INSERT OR IGNORE INTO race_finishes (
-                        event_id,
-                        traccar_device_id,
-                        finish_time,
-                        elapsed_seconds,
-                        corrected_seconds,
+                      const correctedSeconds =
+                        elapsedSeconds *
                         handicap
-                      )
-                      VALUES (?, ?, ?, ?, ?, ?)
-                    `).bind(
-                      eventId,
-                      deviceId,
-                      finishTime,
-                      elapsedSeconds,
-                      correctedSeconds,
-                      handicap,
-                    ).run()
 
-                    finish = {
-                      traccar_device_id:
+                      const finishTime =
+                        new Date(
+                          finishMs,
+                        ).toISOString()
+
+                      await env.DB.prepare(`
+                        INSERT OR IGNORE INTO race_finishes (
+                          event_id,
+                          traccar_device_id,
+                          finish_time,
+                          elapsed_seconds,
+                          corrected_seconds,
+                          handicap
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?)
+                      `).bind(
+                        eventId,
                         deviceId,
-                      finish_time:
                         finishTime,
-                      elapsed_seconds:
                         elapsedSeconds,
-                      corrected_seconds:
                         correctedSeconds,
-                      handicap,
-                    }
+                        handicap,
+                      ).run()
 
-                    finishByDevice.set(
-                      deviceId,
-                      finish,
-                    )
+                      finish = {
+                        traccar_device_id:
+                          deviceId,
+                        finish_time:
+                          finishTime,
+                        elapsed_seconds:
+                          elapsedSeconds,
+                        corrected_seconds:
+                          correctedSeconds,
+                        handicap,
+                      }
+
+                      finishByDevice.set(
+                        deviceId,
+                        finish,
+                      )
+                    }
                   }
                 }
               }
