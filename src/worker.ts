@@ -183,17 +183,25 @@ async function ensureBoatSettingsTable(
   )
 
   if (!names.has('skipper')) {
-    await env.DB.prepare(`
-      ALTER TABLE boat_settings
-      ADD COLUMN skipper TEXT
-    `).run()
+    try {
+      await env.DB.prepare(`
+        ALTER TABLE boat_settings
+        ADD COLUMN skipper TEXT
+      `).run()
+    } catch {
+      // Outra invocação pode ter criado a coluna em simultâneo.
+    }
   }
 
   if (!names.has('time_handicap')) {
-    await env.DB.prepare(`
-      ALTER TABLE boat_settings
-      ADD COLUMN time_handicap REAL
-    `).run()
+    try {
+      await env.DB.prepare(`
+        ALTER TABLE boat_settings
+        ADD COLUMN time_handicap REAL
+      `).run()
+    } catch {
+      // Outra invocação pode ter criado a coluna em simultâneo.
+    }
   }
 }
 
@@ -2571,28 +2579,23 @@ export default {
 
         await ensureBoatSettingsTable(env)
 
-        if (color === null) {
-          await env.DB.prepare(`
-            DELETE FROM boat_settings
-            WHERE traccar_device_id = ?
-          `).bind(deviceId).run()
-        } else {
-          await env.DB.prepare(`
-            INSERT INTO boat_settings (
-              traccar_device_id,
-              color,
-              updated_at
-            )
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(traccar_device_id)
-            DO UPDATE SET
-              color = excluded.color,
-              updated_at = CURRENT_TIMESTAMP
-          `).bind(
-            deviceId,
-            color.toLowerCase(),
-          ).run()
-        }
+        await env.DB.prepare(`
+          INSERT INTO boat_settings (
+            traccar_device_id,
+            color,
+            updated_at
+          )
+          VALUES (?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(traccar_device_id)
+          DO UPDATE SET
+            color = excluded.color,
+            updated_at = CURRENT_TIMESTAMP
+        `).bind(
+          deviceId,
+          color === null
+            ? null
+            : color.toLowerCase(),
+        ).run()
 
         return json({
           ok: true,
