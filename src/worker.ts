@@ -1925,6 +1925,18 @@ export default {
               ? new Date(startUtc).getTime()
               : Number.NaN
 
+          // Evita falsas chegadas quando a linha de largada
+          // e a linha de chegada são a mesma (ou coincidentes).
+          // O relógio da regata começa na hora oficial, mas
+          // só aceitamos cruzamentos de chegada 10 minutos depois.
+          const FINISH_GRACE_MS =
+            10 * 60 * 1000
+
+          const finishDetectionStartMs =
+            Number.isFinite(startMs)
+              ? startMs + FINISH_GRACE_MS
+              : Number.NaN
+
           const entries = []
 
           for (
@@ -2052,7 +2064,7 @@ export default {
                     beforeTime <
                       startMs ||
                     afterTime <
-                      startMs ||
+                      finishDetectionStartMs ||
                     afterTime <=
                       beforeTime
                   ) {
@@ -2092,6 +2104,13 @@ export default {
                       beforeTime
                     ) *
                       fraction
+
+                  if (
+                    finishMs <
+                    finishDetectionStartMs
+                  ) {
+                    continue
+                  }
 
                   const elapsedSeconds =
                     Math.max(
@@ -2173,7 +2192,8 @@ export default {
                     previousMs,
                   ) &&
                   previousMs >= startMs &&
-                  currentMs >= startMs &&
+                  currentMs >=
+                    finishDetectionStartMs &&
                   gapMs > 0 &&
                   gapMs <= 60 * 1000
                 ) {
@@ -2204,6 +2224,13 @@ export default {
                       previousMs +
                       gapMs *
                         fraction
+
+                    if (
+                      finishMs <
+                      finishDetectionStartMs
+                    ) {
+                      continue
+                    }
 
                     const elapsedSeconds =
                       Math.max(
