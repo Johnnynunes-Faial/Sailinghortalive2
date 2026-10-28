@@ -3969,8 +3969,8 @@ function AdminView() {
         </section>
 
         <section className="admin-card">
-          <h2>Barcos · cores</h2>
-          <BoatColorsAdmin />
+          <h2>Barcos · configuração</h2>
+          <BoatSettingsAdmin />
         </section>
 
         <section className="admin-card">
@@ -4778,13 +4778,19 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
 }
 
 
-function BoatColorsAdmin() {
-  const [devices, setDevices] = useState<AdminDevice[]>([])
-  const [loading, setLoading] = useState(false)
-  const [savingId, setSavingId] = useState<number | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
-  const [loaded, setLoaded] = useState(false)
+function BoatSettingsAdmin() {
+  const [devices, setDevices] =
+    useState<AdminDevice[]>([])
+  const [loading, setLoading] =
+    useState(false)
+  const [savingId, setSavingId] =
+    useState<number | null>(null)
+  const [message, setMessage] =
+    useState<string | null>(null)
+  const [open, setOpen] =
+    useState(false)
+  const [loaded, setLoaded] =
+    useState(false)
 
   async function load() {
     if (loaded) return
@@ -4798,7 +4804,10 @@ function BoatColorsAdmin() {
         { cache: 'no-store' },
       )
 
-      const data = await readJsonResponse(response)
+      const data =
+        await readJsonResponse(
+          response,
+        )
 
       if (!response.ok || !data.ok) {
         throw new Error(
@@ -4807,7 +4816,25 @@ function BoatColorsAdmin() {
         )
       }
 
-      setDevices(data.devices ?? [])
+      setDevices(
+        (data.devices ?? []).map(
+          (device: AdminDevice) => ({
+            ...device,
+            skipper:
+              device.skipper ?? '',
+            timeHandicap:
+              Number.isFinite(
+                Number(
+                  device.timeHandicap,
+                ),
+              )
+                ? Number(
+                    device.timeHandicap,
+                  )
+                : 1,
+          }),
+        ),
+      )
       setLoaded(true)
     } catch (error) {
       setDevices([])
@@ -4830,57 +4857,105 @@ function BoatColorsAdmin() {
     }
   }
 
-  async function saveColor(
+  function updateDevice(
     deviceId: number,
-    color: string | null,
+    patch: Partial<AdminDevice>,
   ) {
-    setSavingId(deviceId)
+    setDevices((current) =>
+      current.map((device) =>
+        device.id === deviceId
+          ? {
+              ...device,
+              ...patch,
+            }
+          : device,
+      ),
+    )
+  }
+
+  async function saveSettings(
+    device: AdminDevice,
+  ) {
+    const handicap =
+      Number(
+        device.timeHandicap ?? 1,
+      )
+
+    if (
+      !Number.isFinite(handicap) ||
+      handicap < 0.1 ||
+      handicap > 3
+    ) {
+      setMessage(
+        'O handicap deve estar entre 0,100 e 3,000.',
+      )
+      return
+    }
+
+    setSavingId(device.id)
     setMessage(null)
 
     try {
       const response = await adminFetch(
-        `/admin/api/devices/${deviceId}/color`,
+        '/admin/api/devices/' +
+          device.id +
+          '/settings',
         {
           method: 'PUT',
           headers: {
-            'content-type': 'application/json',
+            'content-type':
+              'application/json',
           },
-          body: JSON.stringify({ color }),
+          body: JSON.stringify({
+            color:
+              device.color ?? null,
+            skipper:
+              device.skipper ?? null,
+            timeHandicap:
+              handicap,
+          }),
         },
       )
 
-      const data = await readJsonResponse(response)
+      const data =
+        await readJsonResponse(
+          response,
+        )
 
       if (!response.ok || !data.ok) {
         throw new Error(
           data.error ||
-            'Erro ao guardar a cor.',
+            'Erro ao guardar a configuração.',
         )
       }
 
-      setDevices((current) =>
-        current.map((device) =>
-          device.id === deviceId
-            ? {
-                ...device,
-                color: data.color ?? null,
-              }
-            : device,
-        ),
+      updateDevice(
+        device.id,
+        {
+          color:
+            data.color ?? null,
+          skipper:
+            data.skipper ?? '',
+          timeHandicap:
+            Number(
+              data.timeHandicap ??
+                1,
+            ),
+        },
       )
 
       await refreshBoatColors()
 
       setMessage(
-        color
-          ? 'Cor do barco guardada.'
-          : 'Cor automática reposta.',
+        'Configuração de ' +
+          device.name +
+          ' guardada.',
       )
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Erro ao guardar a cor.',
+          : 'Erro ao guardar a configuração.',
       )
     } finally {
       setSavingId(null)
@@ -4897,8 +4972,8 @@ function BoatColorsAdmin() {
       >
         <span>
           {open
-            ? 'Ocultar cores dos barcos'
-            : 'Gerir cores dos barcos'}
+            ? 'Ocultar configuração dos barcos'
+            : 'Gerir barcos'}
         </span>
 
         <span
@@ -4916,10 +4991,11 @@ function BoatColorsAdmin() {
       {open && (
         <div className="boat-colors-panel">
           <div className="boat-colors-help">
-            A cor escolhida é global: Live Geral,
-            regatas, rastos, Replay e histórico.
-            Se deixares em automático, mantém-se
-            a cor calculada pelo ID Traccar.
+            Configuração global de cada ID Traccar.
+            A cor é usada em todo o site; o skipper
+            e o handicap são usados no painel de
+            tempos compensados das regatas.
+            Um handicap 1,000 mantém o tempo real.
           </div>
 
           {loading ? (
@@ -4942,7 +5018,7 @@ function BoatColorsAdmin() {
                     return (
                       <div
                         key={device.id}
-                        className="boat-color-row"
+                        className="boat-color-row boat-settings-row"
                       >
                         <div className="boat-color-device">
                           <span
@@ -4954,48 +5030,139 @@ function BoatColorsAdmin() {
                           />
 
                           <div className="device-info">
-                            <strong>{device.name}</strong>
+                            <strong>
+                              {device.name}
+                            </strong>
                             <span>
                               ID Traccar: {device.id}
-                              {device.color
-                                ? ' · Cor manual'
-                                : ' · Automática'}
                             </span>
                           </div>
                         </div>
 
-                        <div className="boat-color-actions">
-                          <input
-                            type="color"
-                            className="boat-color-picker"
-                            value={effectiveColor}
-                            disabled={
-                              savingId === device.id
-                            }
-                            aria-label={`Cor de ${device.name}`}
-                            onChange={(event) =>
-                              saveColor(
-                                device.id,
-                                event.target.value,
-                              )
-                            }
-                          />
+                        <div className="boat-settings-fields">
+                          <label>
+                            <span>Skipper</span>
+                            <input
+                              type="text"
+                              value={
+                                device.skipper ??
+                                ''
+                              }
+                              placeholder="Nome do skipper"
+                              disabled={
+                                savingId ===
+                                device.id
+                              }
+                              onChange={(event) =>
+                                updateDevice(
+                                  device.id,
+                                  {
+                                    skipper:
+                                      event.target.value,
+                                  },
+                                )
+                              }
+                            />
+                          </label>
+
+                          <label>
+                            <span>
+                              Handicap de tempo
+                            </span>
+                            <input
+                              type="number"
+                              min="0.100"
+                              max="3.000"
+                              step="0.001"
+                              inputMode="decimal"
+                              value={
+                                device.timeHandicap ??
+                                1
+                              }
+                              disabled={
+                                savingId ===
+                                device.id
+                              }
+                              onChange={(event) =>
+                                updateDevice(
+                                  device.id,
+                                  {
+                                    timeHandicap:
+                                      Number(
+                                        event.target.value,
+                                      ),
+                                  },
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <div className="boat-color-actions boat-settings-actions">
+                          <div className="boat-settings-color">
+                            <span>Cor</span>
+
+                            <input
+                              type="color"
+                              className="boat-color-picker"
+                              value={effectiveColor}
+                              disabled={
+                                savingId ===
+                                device.id
+                              }
+                              aria-label={
+                                'Cor de ' +
+                                device.name
+                              }
+                              onChange={(event) =>
+                                updateDevice(
+                                  device.id,
+                                  {
+                                    color:
+                                      event.target.value,
+                                  },
+                                )
+                              }
+                            />
+
+                            <button
+                              type="button"
+                              className="secondary-button boat-auto-color-button"
+                              disabled={
+                                savingId ===
+                                  device.id ||
+                                !device.color
+                              }
+                              onClick={() =>
+                                updateDevice(
+                                  device.id,
+                                  {
+                                    color: null,
+                                  },
+                                )
+                              }
+                            >
+                              Automática
+                            </button>
+                          </div>
 
                           <button
                             type="button"
-                            className="secondary-button boat-auto-color-button"
+                            className="save-button boat-settings-save"
                             disabled={
-                              savingId === device.id ||
-                              !device.color
+                              savingId ===
+                              device.id
                             }
                             onClick={() =>
-                              saveColor(
-                                device.id,
-                                null,
+                              saveSettings(
+                                device,
                               )
                             }
                           >
-                            Automática
+                            {savingId ===
+                            device.id
+                              ? 'A guardar...'
+                              : 'Guardar'}
                           </button>
                         </div>
                       </div>
@@ -5016,7 +5183,6 @@ function BoatColorsAdmin() {
     </>
   )
 }
-
 
 
 type UnknownDeviceRecord = {
