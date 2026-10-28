@@ -1986,6 +1986,171 @@ export default {
                 )
 
               if (
+                !previous &&
+                boat?.position &&
+                startUtc &&
+                Number.isFinite(
+                  currentMs,
+                ) &&
+                currentMs >= startMs
+              ) {
+                const history =
+                  await getReplayTrackForDevice(
+                    env,
+                    deviceId,
+                    startUtc,
+                    boat.position.fixTime,
+                  )
+
+                const historyPositions =
+                  history.ok
+                    ? history.positions
+                    : []
+
+                for (
+                  let index = 1;
+                  index <
+                  historyPositions.length;
+                  index++
+                ) {
+                  const before =
+                    historyPositions[
+                      index - 1
+                    ]
+
+                  const after =
+                    historyPositions[
+                      index
+                    ]
+
+                  const beforeTime =
+                    new Date(
+                      before.fixTime ??
+                        before.deviceTime ??
+                        before.serverTime ??
+                        0,
+                    ).getTime()
+
+                  const afterTime =
+                    new Date(
+                      after.fixTime ??
+                        after.deviceTime ??
+                        after.serverTime ??
+                        0,
+                    ).getTime()
+
+                  if (
+                    !Number.isFinite(
+                      beforeTime,
+                    ) ||
+                    !Number.isFinite(
+                      afterTime,
+                    ) ||
+                    beforeTime <
+                      startMs ||
+                    afterTime <
+                      startMs ||
+                    afterTime <=
+                      beforeTime
+                  ) {
+                    continue
+                  }
+
+                  const fraction =
+                    segmentIntersectionFraction(
+                      before.latitude,
+                      before.longitude,
+                      after.latitude,
+                      after.longitude,
+                      Number(
+                        finishLine.a_latitude,
+                      ),
+                      Number(
+                        finishLine.a_longitude,
+                      ),
+                      Number(
+                        finishLine.b_latitude,
+                      ),
+                      Number(
+                        finishLine.b_longitude,
+                      ),
+                    )
+
+                  if (
+                    fraction === null
+                  ) {
+                    continue
+                  }
+
+                  const finishMs =
+                    beforeTime +
+                    (
+                      afterTime -
+                      beforeTime
+                    ) *
+                      fraction
+
+                  const elapsedSeconds =
+                    Math.max(
+                      0,
+                      (
+                        finishMs -
+                        startMs
+                      ) /
+                        1000,
+                    )
+
+                  const correctedSeconds =
+                    elapsedSeconds *
+                    handicap
+
+                  const finishTime =
+                    new Date(
+                      finishMs,
+                    ).toISOString()
+
+                  await env.DB.prepare(`
+                    INSERT OR IGNORE INTO race_finishes (
+                      event_id,
+                      traccar_device_id,
+                      finish_time,
+                      elapsed_seconds,
+                      corrected_seconds,
+                      handicap
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                  `).bind(
+                    eventId,
+                    deviceId,
+                    finishTime,
+                    elapsedSeconds,
+                    correctedSeconds,
+                    handicap,
+                  ).run()
+
+                  finish = {
+                    traccar_device_id:
+                      deviceId,
+                    finish_time:
+                      finishTime,
+                    elapsed_seconds:
+                      elapsedSeconds,
+                    corrected_seconds:
+                      correctedSeconds,
+                    handicap,
+                  }
+
+                  finishByDevice.set(
+                    deviceId,
+                    finish,
+                  )
+
+                  break
+                }
+              }
+
+              if (
+                !finish &&
                 previous &&
                 Number.isFinite(
                   currentMs,
