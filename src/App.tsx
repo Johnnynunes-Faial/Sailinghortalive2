@@ -2120,6 +2120,108 @@ function PublicLiveView() {
       <section className="map-container">
         <div ref={mapElementRef} className="map" />
 
+        {raceTimingVisible && raceTiming && (
+          <aside
+            className={
+              layersOpen
+                ? 'race-timing-panel layers-open'
+                : 'race-timing-panel'
+            }
+          >
+            <div className="race-timing-header">
+              <div>
+                <span>TEMPOS COMPENSADOS</span>
+                <strong>
+                  {selectedPublicEvent?.name}
+                </strong>
+              </div>
+
+              <div className="race-timing-live">
+                AO VIVO
+              </div>
+            </div>
+
+            {!raceTiming.finishLineReady && (
+              <div className="race-timing-warning">
+                Linha de chegada ainda não definida.
+                Os tempos correm, mas não podem ser
+                congelados automaticamente.
+              </div>
+            )}
+
+            {raceRanking.length === 0 ? (
+              <div className="race-timing-empty">
+                Ainda não existem barcos inscritos
+                nesta regata.
+              </div>
+            ) : (
+              <div className="race-timing-list">
+                {raceRanking.map(
+                  (entry, index) => (
+                    <div
+                      key={entry.deviceId}
+                      className={
+                        entry.finished
+                          ? 'race-timing-row finished'
+                          : 'race-timing-row'
+                      }
+                    >
+                      <div className="race-timing-rank">
+                        {index + 1}
+                      </div>
+
+                      <span
+                        className="race-timing-color"
+                        style={{
+                          backgroundColor:
+                            entry.color ??
+                            boatColor(
+                              entry.deviceId,
+                            ),
+                        }}
+                      />
+
+                      <div className="race-timing-boat">
+                        <strong>
+                          {entry.boatName}
+                        </strong>
+
+                        <span>
+                          {entry.skipper
+                            ? entry.skipper
+                            : 'Skipper —'}
+                        </span>
+
+                        <small>
+                          {entry.speed !== null
+                            ? entry.speed.toFixed(1) + ' kn'
+                            : '— kn'}
+                          {' · HC '}
+                          {entry.handicap.toFixed(3)}
+                        </small>
+                      </div>
+
+                      <div className="race-timing-time">
+                        <strong>
+                          {formatRaceDuration(
+                            entry.displayCorrectedSeconds,
+                          )}
+                        </strong>
+
+                        <span>
+                          {entry.finished
+                            ? '✓ Chegou'
+                            : 'Em prova'}
+                        </span>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+          </aside>
+        )}
+
         {selectedBoat?.position && (
           <div className="live-measure-panel">
             <div className="live-measure-header">
