@@ -1999,7 +1999,10 @@ export default {
                     env,
                     deviceId,
                     startUtc,
-                    boat.position.fixTime,
+                    currentFix ??
+                      new Date(
+                        currentMs,
+                      ).toISOString(),
                   )
 
                 const historyPositions =
