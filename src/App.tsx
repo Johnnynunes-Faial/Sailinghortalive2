@@ -25,6 +25,7 @@ type EventItem = {
   start_time: string | null
   end_time: string | null
   status: string
+  timingEnabled?: boolean
   created_at: string
   updated_at: string
 }
@@ -4007,6 +4008,8 @@ function RaceModeView() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [timingSaving, setTimingSaving] =
+    useState(false)
   const [quickEditor, setQuickEditor] = useState<
     'participants' | 'course' | null
   >(null)
@@ -4067,6 +4070,67 @@ function RaceModeView() {
     events.find(
       (event) => event.id === selectedEventId,
     ) ?? null
+
+  async function setTimingEnabled(
+    enabled: boolean,
+  ) {
+    if (!selectedEvent) return
+
+    setTimingSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(selectedEvent.id)}/timing`,
+        {
+          method: 'PUT',
+          headers: {
+            'content-type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            enabled,
+          }),
+        },
+      )
+
+      const data =
+        await readJsonResponse(response)
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+            'Erro ao alterar os tempos compensados',
+        )
+      }
+
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedEvent.id
+            ? {
+                ...event,
+                timingEnabled:
+                  enabled,
+              }
+            : event,
+        ),
+      )
+
+      setMessage(
+        enabled
+          ? 'Tempos compensados ativados no Live.'
+          : 'Tempos compensados desativados no Live.',
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao alterar os tempos compensados',
+      )
+    } finally {
+      setTimingSaving(false)
+    }
+  }
 
   async function finishNow() {
     if (!selectedEvent) return
@@ -4218,6 +4282,44 @@ function RaceModeView() {
                     )}
                   </strong>
                 </div>
+              </div>
+
+              <div className="race-timing-toggle">
+                <div>
+                  <strong>
+                    Tempos compensados em direto
+                  </strong>
+                  <span>
+                    {selectedEvent.timingEnabled
+                      ? 'Visíveis e a calcular no Live'
+                      : 'Desativados para esta regata'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className={
+                    selectedEvent.timingEnabled
+                      ? 'timing-toggle-button enabled'
+                      : 'timing-toggle-button'
+                  }
+                  onClick={() =>
+                    setTimingEnabled(
+                      !selectedEvent.timingEnabled,
+                    )
+                  }
+                  disabled={
+                    timingSaving ||
+                    selectedEvent.status ===
+                      'completed'
+                  }
+                >
+                  {timingSaving
+                    ? 'A guardar...'
+                    : selectedEvent.timingEnabled
+                      ? 'Ativados'
+                      : 'Desativados'}
+                </button>
               </div>
 
               {selectedEvent.status !== 'completed' && (
