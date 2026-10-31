@@ -2872,3 +2872,27 @@ button {
     flex-wrap: wrap;
   }
 }
+
+
+/* v0.25.2 — setas discretas de orientação do percurso */
+.course-direction-arrow-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;
+}
+
+.course-direction-arrow {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: rgba(18, 91, 158, 0.72);
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+  transform-origin: 50% 50%;
+}
+
+.course-direction-arrow svg {
+  display: block;
+}
