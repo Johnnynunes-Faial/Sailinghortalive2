@@ -2520,23 +2520,16 @@ export default {
           env,
         )
 
-        const result =
+        const existingEvent =
           await env.DB.prepare(`
-            UPDATE events
-            SET
-              timing_enabled = ?,
-              updated_at = CURRENT_TIMESTAMP
+            SELECT id
+            FROM events
             WHERE id = ?
           `).bind(
-            body.enabled ? 1 : 0,
             eventId,
-          ).run()
+          ).first()
 
-        if (
-          Number(
-            result.meta.changes ?? 0,
-          ) < 1
-        ) {
+        if (!existingEvent) {
           return json(
             {
               ok: false,
@@ -2546,6 +2539,17 @@ export default {
             404,
           )
         }
+
+        await env.DB.prepare(`
+          UPDATE events
+          SET
+            timing_enabled = ?,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(
+          body.enabled ? 1 : 0,
+          eventId,
+        ).run()
 
         return json({
           ok: true,
