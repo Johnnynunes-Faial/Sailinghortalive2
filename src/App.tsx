@@ -1554,6 +1554,11 @@ function PublicLiveView() {
             opacity: 0.75,
             dashArray: '8 8',
           }).addTo(layer)
+
+          addCourseDirectionArrows(
+            layer,
+            routeLatLngs,
+          )
         }
 
         for (const point of course) {
@@ -2843,6 +2848,11 @@ function ReplayView() {
         opacity: 0.7,
         dashArray: '8 8',
       }).addTo(courseLayer)
+
+      addCourseDirectionArrows(
+        courseLayer,
+        route,
+      )
     }
 
     for (
@@ -6617,6 +6627,103 @@ function lineMidpoint(line: CourseLine): [number, number] {
     (line.a_latitude + line.b_latitude) / 2,
     (line.a_longitude + line.b_longitude) / 2,
   ]
+}
+
+function courseSegmentBearing(
+  from: [number, number],
+  to: [number, number],
+) {
+  const toRad = (value: number) =>
+    value * Math.PI / 180
+
+  const lat1 = toRad(from[0])
+  const lat2 = toRad(to[0])
+  const deltaLon =
+    toRad(to[1] - from[1])
+
+  const y =
+    Math.sin(deltaLon) *
+    Math.cos(lat2)
+
+  const x =
+    Math.cos(lat1) *
+      Math.sin(lat2) -
+    Math.sin(lat1) *
+      Math.cos(lat2) *
+      Math.cos(deltaLon)
+
+  return (
+    Math.atan2(y, x) *
+      180 /
+      Math.PI +
+    360
+  ) % 360
+}
+
+function makeCourseDirectionArrowIcon(
+  bearing: number,
+) {
+  return L.divIcon({
+    className:
+      'course-direction-arrow-wrapper',
+    html: `
+      <div
+        class="course-direction-arrow"
+        style="transform: rotate(${bearing}deg)"
+        aria-hidden="true"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M9 2 L14 11 L9 8.6 L4 11 Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+    `,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  })
+}
+
+function addCourseDirectionArrows(
+  layer: L.LayerGroup,
+  route: [number, number][],
+) {
+  for (
+    let index = 0;
+    index < route.length - 1;
+    index++
+  ) {
+    const from = route[index]
+    const to = route[index + 1]
+
+    const midpoint:
+      [number, number] = [
+        (from[0] + to[0]) / 2,
+        (from[1] + to[1]) / 2,
+      ]
+
+    L.marker(
+      midpoint,
+      {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 350,
+        icon:
+          makeCourseDirectionArrowIcon(
+            courseSegmentBearing(
+              from,
+              to,
+            ),
+          ),
+      },
+    ).addTo(layer)
+  }
 }
 
 function normalizeCourseLine(line: any): CourseLine {
