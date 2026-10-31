@@ -205,6 +205,33 @@ async function ensureBoatSettingsTable(
   }
 }
 
+async function ensureEventTimingEnabledColumn(
+  env: Env,
+) {
+  const columns = await env.DB.prepare(`
+    PRAGMA table_info(events)
+  `).all<{
+    name: string
+  }>()
+
+  const hasColumn =
+    (columns.results ?? []).some(
+      (column) =>
+        column.name === 'timing_enabled',
+    )
+
+  if (!hasColumn) {
+    try {
+      await env.DB.prepare(`
+        ALTER TABLE events
+        ADD COLUMN timing_enabled INTEGER NOT NULL DEFAULT 0
+      `).run()
+    } catch {
+      // Outra invocação pode ter criado a coluna em simultâneo.
+    }
+  }
+}
+
 async function ensureRaceTimingTables(
   env: Env,
 ) {
@@ -1252,16 +1279,27 @@ export default {
 
     if (url.pathname === '/api/events' && request.method === 'GET') {
       try {
+        await ensureEventTimingEnabledColumn(env)
+
         const result = await env.DB.prepare(`
-          SELECT id, name, start_time, end_time, status, created_at, updated_at
+          SELECT id, name, start_time, end_time, status, timing_enabled, created_at, updated_at
           FROM events
           ORDER BY start_time ASC, created_at ASC
         `).all()
 
-        const events = (result.results ?? []).map((event: any) => ({
-          ...event,
-          status: effectiveEventStatus(event),
-        }))
+        const events = (result.results ?? []).map((event: any) => {
+          const {
+            timing_enabled,
+            ...rest
+          } = event
+
+          return {
+            ...rest,
+            status: effectiveEventStatus(event),
+            timingEnabled:
+              Number(timing_enabled) === 1,
+          }
+        })
 
         return json({ ok: true, events })
       } catch (error) {
@@ -1699,13 +1737,16 @@ export default {
       try {
         const eventId = liveEventMatch[1]
 
+        await ensureEventTimingEnabledColumn(env)
+
         const event = await env.DB.prepare(`
           SELECT
             id,
             name,
             start_time,
             end_time,
-            status
+            status,
+            timing_enabled
           FROM events
           WHERE id = ?
         `).bind(eventId).first<{
@@ -1714,6 +1755,7 @@ export default {
           start_time: string | null
           end_time: string | null
           status: string
+          timing_enabled: number
         }>()
 
         if (!event) {
@@ -1810,7 +1852,10 @@ export default {
           }>
         } | null = null
 
-        if (eventStatus === 'live') {
+        if (
+          eventStatus === 'live' &&
+          Number(event.timing_enabled) === 1
+        ) {
           await ensureBoatSettingsTable(env)
           await ensureRaceTimingTables(env)
 
@@ -2439,6 +2484,87 @@ export default {
     const finishEventMatch = url.pathname.match(
       /^\/admin\/api\/events\/([^/]+)\/finish$/,
     )
+
+    const eventTimingMatch = url.pathname.match(
+      /^\/admin\/api\/events\/([^/]+)\/timing$/,
+    )
+
+    if (
+      eventTimingMatch &&
+      request.method === 'PUT'
+    ) {
+      try {
+        const eventId =
+          eventTimingMatch[1]
+
+        const body =
+          await request.json() as {
+            enabled?: boolean
+          }
+
+        if (
+          typeof body.enabled !==
+          'boolean'
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Estado dos tempos compensados inválido',
+            },
+            400,
+          )
+        }
+
+        await ensureEventTimingEnabledColumn(
+          env,
+        )
+
+        const result =
+          await env.DB.prepare(`
+            UPDATE events
+            SET
+              timing_enabled = ?,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).bind(
+            body.enabled ? 1 : 0,
+            eventId,
+          ).run()
+
+        if (
+          Number(
+            result.meta.changes ?? 0,
+          ) < 1
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Regata não encontrada',
+            },
+            404,
+          )
+        }
+
+        return json({
+          ok: true,
+          timingEnabled:
+            body.enabled,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao alterar tempos compensados',
+          },
+          500,
+        )
+      }
+    }
 
     if (finishEventMatch && request.method === 'POST') {
       try {
