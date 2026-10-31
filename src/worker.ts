@@ -1796,11 +1796,34 @@ export default {
         const allActiveBoats =
           await getActiveBoats(env)
 
-        const boats =
-          allActiveBoats.filter(
-            (boat) =>
-              allowedIds.has(boat.id),
+        const participantNameByDevice =
+          new Map(
+            participantRows.map(
+              (row) => [
+                Number(
+                  row.traccar_device_id,
+                ),
+                String(
+                  row.boat_name ?? '',
+                ).trim(),
+              ],
+            ),
           )
+
+        const boats =
+          allActiveBoats
+            .filter(
+              (boat) =>
+                allowedIds.has(boat.id),
+            )
+            .map((boat) => ({
+              ...boat,
+              name:
+                participantNameByDevice.get(
+                  boat.id,
+                ) ||
+                boat.name,
+            }))
 
         await ensureCourseRoundingColumn(env)
 
@@ -2971,8 +2994,41 @@ export default {
         }
 
         const participants = Array.isArray(body.participants)
-          ? body.participants
+          ? body.participants.map(
+              (participant) => ({
+                traccarDeviceId:
+                  Number(
+                    participant.traccarDeviceId,
+                  ),
+                boatName:
+                  String(
+                    participant.boatName ??
+                      '',
+                  ).trim(),
+              }),
+            )
           : []
+
+        const invalidParticipant =
+          participants.find(
+            (participant) =>
+              !Number.isInteger(
+                participant.traccarDeviceId,
+              ) ||
+              participant.traccarDeviceId <= 0 ||
+              !participant.boatName,
+          )
+
+        if (invalidParticipant) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Todos os participantes precisam de um barco e de um nome nesta regata.',
+            },
+            400,
+          )
+        }
 
         const existingEvent = await env.DB.prepare(`
           SELECT id FROM events WHERE id = ?
