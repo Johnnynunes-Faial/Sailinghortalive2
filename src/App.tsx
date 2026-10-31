@@ -4675,6 +4675,8 @@ function GeneralEditor({
 function ParticipantsEditor({ event }: { event: EventItem }) {
   const [devices, setDevices] = useState<AdminDevice[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [participantNames, setParticipantNames] =
+    useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -4719,18 +4721,51 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
         )
       }
 
-      setDevices(devicesData.devices ?? [])
-      setSelectedIds(
+      const loadedDevices =
+        (devicesData.devices ?? []) as AdminDevice[]
+
+      const loadedParticipants =
+        (participantsData.participants ?? []) as Array<{
+          traccar_device_id: number
+          boat_name: string
+        }>
+
+      const selected =
         new Set(
-          (participantsData.participants ?? []).map(
-            (participant: any) =>
-              Number(participant.traccar_device_id),
+          loadedParticipants.map(
+            (participant) =>
+              Number(
+                participant.traccar_device_id,
+              ),
           ),
-        ),
-      )
+        )
+
+      const names: Record<number, string> = {}
+
+      for (const device of loadedDevices) {
+        names[device.id] =
+          device.name
+      }
+
+      for (const participant of loadedParticipants) {
+        const deviceId =
+          Number(
+            participant.traccar_device_id,
+          )
+
+        names[deviceId] =
+          String(
+            participant.boat_name ?? '',
+          ).trim()
+      }
+
+      setDevices(loadedDevices)
+      setSelectedIds(selected)
+      setParticipantNames(names)
     } catch (error) {
       setDevices([])
       setSelectedIds(new Set())
+      setParticipantNames({})
       setLoadError(
         error instanceof Error
           ? error.message
@@ -4741,36 +4776,90 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
     }
   }
 
+  function toggleDevice(
+    device: AdminDevice,
+  ) {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+
+      if (next.has(device.id)) {
+        next.delete(device.id)
+      } else {
+        next.add(device.id)
+
+        setParticipantNames((names) => ({
+          ...names,
+          [device.id]:
+            names[device.id]?.trim() ||
+            device.name,
+        }))
+      }
+
+      return next
+    })
+  }
+
   async function save() {
     setSaving(true)
     setMessage(null)
 
     try {
       const participants = devices
-        .filter((device) => selectedIds.has(device.id))
+        .filter(
+          (device) =>
+            selectedIds.has(device.id),
+        )
         .map((device) => ({
-          traccarDeviceId: device.id,
-          boatName: device.name,
+          traccarDeviceId:
+            device.id,
+          boatName:
+            (
+              participantNames[
+                device.id
+              ] ??
+              device.name
+            ).trim(),
         }))
+
+      const missingName =
+        participants.some(
+          (participant) =>
+            !participant.boatName,
+        )
+
+      if (missingName) {
+        throw new Error(
+          'Todos os participantes selecionados precisam de um nome nesta regata.',
+        )
+      }
 
       const response = await adminFetch(
         `/admin/api/events/${encodeURIComponent(event.id)}/participants`,
         {
           method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ participants }),
+          headers: {
+            'content-type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            participants,
+          }),
         },
       )
 
-      const data = await readJsonResponse(response)
+      const data =
+        await readJsonResponse(response)
 
       if (!response.ok || !data.ok) {
         throw new Error(
-          data.error || 'Erro ao guardar participantes',
+          data.error ||
+            'Erro ao guardar participantes',
         )
       }
 
-      setMessage('Participantes guardados.')
+      setMessage(
+        'Participantes e nomes da regata guardados.',
+      )
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -4783,13 +4872,19 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
   }
 
   if (loading) {
-    return <div className="modal-message">A carregar barcos...</div>
+    return (
+      <div className="modal-message">
+        A carregar barcos...
+      </div>
+    )
   }
 
   if (loadError) {
     return (
       <div className="admin-load-error">
-        <strong>Não foi possível carregar os participantes.</strong>
+        <strong>
+          Não foi possível carregar os participantes.
+        </strong>
         <div>{loadError}</div>
 
         <div className="access-help">
@@ -4811,13 +4906,21 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
   return (
     <>
       <div className="participants-toolbar">
-        <span>{selectedIds.size} selecionados</span>
+        <span>
+          {selectedIds.size} selecionados
+        </span>
 
         <button
+          type="button"
           className="secondary-button"
           onClick={() =>
             setSelectedIds(
-              new Set(devices.map((device) => device.id)),
+              new Set(
+                devices.map(
+                  (device) =>
+                    device.id,
+                ),
+              ),
             )
           }
         >
@@ -4825,11 +4928,22 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
         </button>
 
         <button
+          type="button"
           className="secondary-button"
-          onClick={() => setSelectedIds(new Set())}
+          onClick={() =>
+            setSelectedIds(
+              new Set(),
+            )
+          }
         >
           Limpar
         </button>
+      </div>
+
+      <div className="participants-name-help">
+        O ID/dispositivo identifica o telemóvel. O
+        “Nome nesta regata” é o nome que aparece no
+        Live e fica guardado no Replay desta prova.
       </div>
 
       <div className="devices-list">
@@ -4838,43 +4952,77 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
             Nenhum barco recebido do Traccar.
           </div>
         ) : (
-          devices.map((device) => (
-            <label
-              key={device.id}
-              className={
-                selectedIds.has(device.id)
-                  ? 'device-row selected'
-                  : 'device-row'
-              }
-            >
-              <input
-                type="checkbox"
-                checked={selectedIds.has(device.id)}
-                onChange={() => {
-                  setSelectedIds((current) => {
-                    const next = new Set(current)
+          devices.map((device) => {
+            const selected =
+              selectedIds.has(
+                device.id,
+              )
 
-                    if (next.has(device.id)) {
-                      next.delete(device.id)
-                    } else {
-                      next.add(device.id)
+            return (
+              <div
+                key={device.id}
+                className={
+                  selected
+                    ? 'device-row participant-device-row selected'
+                    : 'device-row participant-device-row'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() =>
+                    toggleDevice(device)
+                  }
+                  aria-label={
+                    `Selecionar ${device.name}`
+                  }
+                />
+
+                <div className="device-info">
+                  <strong>
+                    {device.name}
+                  </strong>
+                  <span>
+                    ID Traccar: {device.id}
+                  </span>
+                </div>
+
+                <label className="participant-race-name">
+                  <span>
+                    Nome nesta regata
+                  </span>
+                  <input
+                    type="text"
+                    value={
+                      participantNames[
+                        device.id
+                      ] ??
+                      device.name
                     }
-
-                    return next
-                  })
-                }}
-              />
-
-              <div className="device-info">
-                <strong>{device.name}</strong>
-                <span>ID Traccar: {device.id}</span>
+                    disabled={!selected}
+                    onChange={(event) =>
+                      setParticipantNames(
+                        (current) => ({
+                          ...current,
+                          [device.id]:
+                            event.target.value,
+                        }),
+                      )
+                    }
+                    placeholder="Nome do barco nesta prova"
+                  />
+                </label>
               </div>
-            </label>
-          ))
+            )
+          })
         )}
       </div>
 
-      {message && <div className="inline-message">{message}</div>}
+      {message && (
+        <div className="inline-message">
+          {message}
+        </div>
+      )}
 
       <div className="participants-actions">
         <button
@@ -4882,13 +5030,14 @@ function ParticipantsEditor({ event }: { event: EventItem }) {
           onClick={save}
           disabled={saving}
         >
-          {saving ? 'A guardar...' : 'Guardar participantes'}
+          {saving
+            ? 'A guardar...'
+            : 'Guardar participantes'}
         </button>
       </div>
     </>
   )
 }
-
 
 function BoatSettingsAdmin() {
   const [devices, setDevices] =
