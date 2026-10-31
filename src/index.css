@@ -2952,3 +2952,77 @@ button {
     width: 100%;
   }
 }
+
+
+/* v0.25.4 — nome do barco específico por regata */
+.participants-name-help {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7fafc;
+  color: #607581;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.participant-device-row {
+  display: grid;
+  grid-template-columns:
+    auto
+    minmax(130px, 0.9fr)
+    minmax(220px, 1.3fr);
+  align-items: center;
+  cursor: default;
+}
+
+.participant-device-row > input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.participant-race-name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.participant-race-name > span {
+  color: #607581;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.participant-race-name input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #cfd9df;
+  border-radius: 8px;
+  background: white;
+  color: #102331;
+  font: inherit;
+}
+
+.participant-race-name input:disabled {
+  background: #f1f4f6;
+  color: #8a99a3;
+}
+
+@media (max-width: 650px) {
+  .participant-device-row {
+    grid-template-columns:
+      auto
+      minmax(0, 1fr);
+  }
+
+  .participant-race-name {
+    grid-column: 2;
+  }
+
+  .participants-name-help {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+}
