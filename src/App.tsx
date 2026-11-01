@@ -6653,8 +6653,8 @@ function CourseEditor({ event }: { event: EventItem }) {
 }
 
 
-const MIN_COURSE_SPEED_KN = 1
-const COURSE_SMOOTHING_ALPHA = 0.35
+const MIN_COURSE_SPEED_KN = 0.3
+const COURSE_SMOOTHING_ALPHA = 0.65
 
 function normalizeAngle(angle: number) {
   return ((angle % 360) + 360) % 360
