@@ -316,6 +316,37 @@ function formatEtaHours(hours: number) {
   return `${wholeHours} h ${minutes} min`
 }
 
+function formatEstimatedArrival(
+  etaHours: number,
+) {
+  if (
+    !Number.isFinite(etaHours) ||
+    etaHours < 0
+  ) {
+    return '—'
+  }
+
+  const arrival =
+    new Date(
+      Date.now() +
+        etaHours *
+          60 *
+          60 *
+          1000,
+    )
+
+  return new Intl.DateTimeFormat(
+    'pt-PT',
+    {
+      timeZone:
+        'Atlantic/Azores',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    },
+  ).format(arrival)
+}
+
 function formatRaceDuration(
   seconds: number,
 ) {
@@ -1994,10 +2025,26 @@ function PublicLiveView() {
               selectedBoat.position.speed ?? 0,
             )
 
-          const eta =
+          const etaHours =
             speed >= 0.5
+              ? distanceNm / speed
+              : Number.NaN
+
+          const eta =
+            Number.isFinite(
+              etaHours,
+            )
               ? formatEtaHours(
-                  distanceNm / speed,
+                  etaHours,
+                )
+              : '—'
+
+          const arrivalTime =
+            Number.isFinite(
+              etaHours,
+            )
+              ? formatEstimatedArrival(
+                  etaHours,
                 )
               : '—'
 
@@ -2006,6 +2053,7 @@ function PublicLiveView() {
             bearing,
             speed,
             eta,
+            arrivalTime,
             label:
               targetBoat?.name ??
               measurementTarget.label,
@@ -2325,6 +2373,11 @@ function PublicLiveView() {
                   <span>ETA à velocidade atual</span>
                   <strong>
                     {liveMeasurement.eta}
+                  </strong>
+
+                  <span>Chegada estimada</span>
+                  <strong>
+                    {liveMeasurement.arrivalTime}
                   </strong>
                 </div>
 
