@@ -116,6 +116,48 @@ type WindStation = {
   rawMetar: string
 }
 
+type AisVessel = {
+  mmsi: string
+  name: string
+  latitude: number
+  longitude: number
+  speed: number
+  course: number
+  heading: number | null
+  lastSeen: string
+  messageType: string
+}
+
+function formatAisAge(
+  value: string,
+) {
+  const ageMs =
+    Date.now() -
+    new Date(value).getTime()
+
+  if (
+    !Number.isFinite(ageMs) ||
+    ageMs < 0
+  ) {
+    return 'agora'
+  }
+
+  const minutes =
+    Math.floor(
+      ageMs / 60_000,
+    )
+
+  if (minutes < 1) {
+    return 'agora'
+  }
+
+  if (minutes === 1) {
+    return 'há 1 min'
+  }
+
+  return `há ${minutes} min`
+}
+
 function windCardinal(degrees: number) {
   const directions = [
     'N', 'NE', 'E', 'SE',
@@ -481,6 +523,7 @@ function PublicLiveView() {
   const measurementLayerRef = useRef<L.LayerGroup | null>(null)
   const webcamLayerRef = useRef<L.LayerGroup | null>(null)
   const windStationLayerRef = useRef<L.LayerGroup | null>(null)
+  const aisLayerRef = useRef<L.LayerGroup | null>(null)
   const lastFitKeyRef = useRef('')
   const weatherMoveTimerRef = useRef<number | null>(null)
   const webcamMoveTimerRef = useRef<number | null>(null)
@@ -509,6 +552,11 @@ function PublicLiveView() {
   const [webcams, setWebcams] = useState<MapWebcam[]>([])
   const [webcamsLoading, setWebcamsLoading] = useState(false)
   const [webcamsError, setWebcamsError] = useState<string | null>(null)
+  const [showAis, setShowAis] = useState(false)
+  const [aisVessels, setAisVessels] = useState<AisVessel[]>([])
+  const [aisLoading, setAisLoading] = useState(false)
+  const [aisError, setAisError] = useState<string | null>(null)
+  const [aisSourceOnline, setAisSourceOnline] = useState(false)
   const [windyView, setWindyView] = useState({
     lat: 38.535,
     lon: -28.63,
@@ -956,6 +1004,8 @@ function PublicLiveView() {
       L.layerGroup().addTo(map)
     windStationLayerRef.current =
       L.layerGroup().addTo(map)
+    aisLayerRef.current =
+      L.layerGroup().addTo(map)
 
     const initialCenter =
       map.getCenter()
@@ -1112,6 +1162,173 @@ function PublicLiveView() {
 
     loadWebcamsForMap(true)
   }, [showWebcams])
+
+  useEffect(() => {
+    if (!showAis) {
+      setAisVessels([])
+      setAisError(null)
+      setAisSourceOnline(false)
+      aisLayerRef.current?.clearLayers()
+      return
+    }
+
+    let active = true
+
+    const loadAis = async () => {
+      setAisLoading(true)
+
+      try {
+        const response =
+          await fetch(
+            '/api/ais',
+            {
+              cache: 'no-store',
+            },
+          )
+
+        const data =
+          await response.json() as {
+            ok?: boolean
+            error?: string
+            sourceOnline?: boolean
+            vessels?: AisVessel[]
+          }
+
+        if (
+          !response.ok ||
+          !data.ok
+        ) {
+          throw new Error(
+            data.error ||
+              'Não foi possível carregar AIS.',
+          )
+        }
+
+        if (!active) return
+
+        setAisVessels(
+          data.vessels ?? [],
+        )
+        setAisSourceOnline(
+          Boolean(
+            data.sourceOnline,
+          ),
+        )
+        setAisError(
+          data.sourceOnline === false
+            ? 'Fonte AIS sem atualização recente.'
+            : null,
+        )
+      } catch (error) {
+        if (!active) return
+
+        setAisVessels([])
+        setAisSourceOnline(false)
+        setAisError(
+          error instanceof Error
+            ? error.message
+            : 'Erro ao carregar AIS.',
+        )
+      } finally {
+        if (active) {
+          setAisLoading(false)
+        }
+      }
+    }
+
+    loadAis()
+
+    const timer =
+      window.setInterval(
+        loadAis,
+        60_000,
+      )
+
+    return () => {
+      active = false
+      window.clearInterval(
+        timer,
+      )
+    }
+  }, [showAis])
+
+  useEffect(() => {
+    const layer =
+      aisLayerRef.current
+
+    if (!layer) return
+
+    layer.clearLayers()
+
+    if (!showAis) {
+      return
+    }
+
+    for (
+      const vessel
+      of aisVessels
+    ) {
+      const course =
+        Number.isFinite(
+          vessel.course,
+        )
+          ? vessel.course
+          : 0
+
+      const icon =
+        L.divIcon({
+          className:
+            'ais-vessel-marker-wrapper',
+          html: `
+            <div
+              class="ais-vessel-marker"
+              style="transform: rotate(${course}deg)"
+            >
+              <svg
+                viewBox="0 0 24 32"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 1 L22 28 L12 23 L2 28 Z"
+                />
+              </svg>
+            </div>
+          `,
+          iconSize: [26, 34],
+          iconAnchor: [13, 17],
+        })
+
+      const marker =
+        L.marker(
+          [
+            vessel.latitude,
+            vessel.longitude,
+          ],
+          {
+            icon,
+            riseOnHover: true,
+          },
+        ).addTo(layer)
+
+      const displayName =
+        vessel.name?.trim() ||
+        'Embarcação AIS'
+
+      marker.bindPopup(`
+        <div class="ais-popup">
+          <strong>${escapeHtml(displayName)}</strong>
+          <div>MMSI: ${escapeHtml(vessel.mmsi)}</div>
+          <div>Velocidade: ${Number(vessel.speed ?? 0).toFixed(1)} kn</div>
+          <div>Rumo: ${Math.round(Number(vessel.course ?? 0)).toString().padStart(3, '0')}°</div>
+          <div class="ais-popup-age">Atualizado ${escapeHtml(formatAisAge(vessel.lastSeen))}</div>
+          <div class="ais-popup-credit">AIS · AISStream.io</div>
+        </div>
+      `)
+    }
+  }, [
+    aisVessels,
+    showAis,
+  ])
 
   useEffect(() => {
     fetch('/api/events', { cache: 'no-store' })
@@ -2498,6 +2715,42 @@ function PublicLiveView() {
               windStationsError && (
                 <div className="webcams-layer-error">
                   {windStationsError}
+                </div>
+              )}
+
+            <label className="layer-row">
+              <span>
+                AIS — Navios
+                {aisLoading
+                  ? ' · a carregar…'
+                  : showAis &&
+                      aisVessels.length > 0
+                    ? ` · ${aisVessels.length}`
+                    : ''}
+              </span>
+              <input
+                type="checkbox"
+                checked={showAis}
+                onChange={(event) =>
+                  setShowAis(
+                    event.target.checked,
+                  )
+                }
+              />
+            </label>
+
+            {showAis &&
+              aisError && (
+                <div className="ais-layer-status">
+                  {aisError}
+                </div>
+              )}
+
+            {showAis &&
+              !aisError &&
+              aisSourceOnline && (
+                <div className="ais-layer-status">
+                  AIS em direto · atualização a cada 60 s
                 </div>
               )}
 
