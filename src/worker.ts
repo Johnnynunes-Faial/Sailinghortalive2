@@ -4,6 +4,7 @@ interface Env {
   TRACCAR_PASSWORD: string
   UNKNOWN_MONITOR_URL?: string
   UNKNOWN_MONITOR_KEY?: string
+  AIS_INGEST_KEY?: string
   WINDY_WEBCAMS_KEY?: string
   DB: D1Database
 }
@@ -202,6 +203,136 @@ async function ensureBoatSettingsTable(
     } catch {
       // Outra invocação pode ter criado a coluna em simultâneo.
     }
+  }
+}
+
+async function ensureAisSnapshotTable(
+  env: Env,
+) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS ais_snapshot (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      snapshot_json TEXT NOT NULL,
+      source_updated_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run()
+}
+
+type AisSnapshotVessel = {
+  mmsi: string
+  name: string
+  latitude: number
+  longitude: number
+  speed: number
+  course: number
+  heading: number | null
+  lastSeen: string
+  messageType: string
+}
+
+function sanitizeAisVessel(
+  value: unknown,
+): AisSnapshotVessel | null {
+  if (
+    !value ||
+    typeof value !== 'object'
+  ) {
+    return null
+  }
+
+  const item =
+    value as Record<string, unknown>
+
+  const mmsi =
+    String(item.mmsi ?? '').trim()
+
+  const latitude =
+    Number(item.latitude)
+
+  const longitude =
+    Number(item.longitude)
+
+  const speed =
+    Number(item.speed ?? 0)
+
+  const course =
+    Number(item.course ?? 0)
+
+  const headingRaw =
+    item.heading === null ||
+    item.heading === undefined
+      ? null
+      : Number(item.heading)
+
+  const lastSeen =
+    String(item.lastSeen ?? '').trim()
+
+  if (
+    !/^\d{9}$/.test(mmsi) ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < 36 ||
+    latitude > 41 ||
+    longitude < -33 ||
+    longitude > -23 ||
+    !Number.isFinite(speed) ||
+    speed < 0 ||
+    speed > 120 ||
+    !Number.isFinite(course) ||
+    course < 0 ||
+    course > 360 ||
+    (
+      headingRaw !== null &&
+      (
+        !Number.isFinite(headingRaw) ||
+        headingRaw < 0 ||
+        headingRaw > 511
+      )
+    )
+  ) {
+    return null
+  }
+
+  const lastSeenMs =
+    new Date(lastSeen).getTime()
+
+  if (
+    !Number.isFinite(lastSeenMs) ||
+    Math.abs(
+      Date.now() -
+      lastSeenMs
+    ) >
+      24 * 60 * 60 * 1000
+  ) {
+    return null
+  }
+
+  return {
+    mmsi,
+    name:
+      String(item.name ?? '')
+        .trim()
+        .slice(0, 90),
+    latitude,
+    longitude,
+    speed,
+    course,
+    heading:
+      headingRaw !== null &&
+      headingRaw <= 360
+        ? headingRaw
+        : null,
+    lastSeen:
+      new Date(
+        lastSeenMs,
+      ).toISOString(),
+    messageType:
+      String(
+        item.messageType ?? '',
+      )
+        .trim()
+        .slice(0, 50),
   }
 }
 
@@ -711,6 +842,307 @@ export default {
 
     if (url.pathname === '/api/health') {
       return json({ ok: true, service: 'sailinghortalive' })
+    }
+
+    if (
+      url.pathname === '/api/ais/ingest' &&
+      request.method === 'POST'
+    ) {
+      try {
+        const expectedKey =
+          env.AIS_INGEST_KEY?.trim() ||
+          env.UNKNOWN_MONITOR_KEY?.trim() ||
+          ''
+
+        const providedKey =
+          request.headers
+            .get('X-AIS-Key')
+            ?.trim() ?? ''
+
+        if (
+          !expectedKey ||
+          !providedKey ||
+          providedKey !== expectedKey
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Autenticação AIS inválida.',
+            },
+            401,
+          )
+        }
+
+        const contentLength =
+          Number(
+            request.headers.get(
+              'content-length',
+            ) ?? 0,
+          )
+
+        if (
+          Number.isFinite(
+            contentLength,
+          ) &&
+          contentLength >
+            250_000
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Snapshot AIS demasiado grande.',
+            },
+            413,
+          )
+        }
+
+        const body =
+          await request.json() as {
+            updatedAt?: string
+            vessels?: unknown[]
+          }
+
+        if (
+          !Array.isArray(
+            body.vessels,
+          ) ||
+          body.vessels.length >
+            500
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Snapshot AIS inválido.',
+            },
+            400,
+          )
+        }
+
+        const sourceUpdatedMs =
+          new Date(
+            String(
+              body.updatedAt ?? '',
+            ),
+          ).getTime()
+
+        if (
+          !Number.isFinite(
+            sourceUpdatedMs,
+          ) ||
+          Math.abs(
+            Date.now() -
+            sourceUpdatedMs
+          ) >
+            15 * 60 * 1000
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Data do snapshot AIS inválida.',
+            },
+            400,
+          )
+        }
+
+        const byMmsi =
+          new Map<
+            string,
+            AisSnapshotVessel
+          >()
+
+        for (
+          const value
+          of body.vessels
+        ) {
+          const vessel =
+            sanitizeAisVessel(
+              value,
+            )
+
+          if (!vessel) {
+            continue
+          }
+
+          const previous =
+            byMmsi.get(
+              vessel.mmsi,
+            )
+
+          if (
+            !previous ||
+            vessel.lastSeen >
+              previous.lastSeen
+          ) {
+            byMmsi.set(
+              vessel.mmsi,
+              vessel,
+            )
+          }
+        }
+
+        const vessels =
+          [...byMmsi.values()]
+            .sort(
+              (a, b) =>
+                a.mmsi.localeCompare(
+                  b.mmsi,
+                ),
+            )
+
+        await ensureAisSnapshotTable(
+          env,
+        )
+
+        await env.DB.prepare(`
+          INSERT INTO ais_snapshot (
+            id,
+            snapshot_json,
+            source_updated_at,
+            updated_at
+          )
+          VALUES (
+            1,
+            ?,
+            ?,
+            CURRENT_TIMESTAMP
+          )
+          ON CONFLICT (id)
+          DO UPDATE SET
+            snapshot_json =
+              excluded.snapshot_json,
+            source_updated_at =
+              excluded.source_updated_at,
+            updated_at =
+              CURRENT_TIMESTAMP
+        `).bind(
+          JSON.stringify(
+            vessels,
+          ),
+          new Date(
+            sourceUpdatedMs,
+          ).toISOString(),
+        ).run()
+
+        return json({
+          ok: true,
+          vessels:
+            vessels.length,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao guardar AIS.',
+          },
+          500,
+        )
+      }
+    }
+
+    if (
+      url.pathname === '/api/ais' &&
+      request.method === 'GET'
+    ) {
+      try {
+        await ensureAisSnapshotTable(
+          env,
+        )
+
+        const row =
+          await env.DB.prepare(`
+            SELECT
+              snapshot_json,
+              source_updated_at
+            FROM ais_snapshot
+            WHERE id = 1
+          `).first<{
+            snapshot_json: string
+            source_updated_at: string
+          }>()
+
+        if (!row) {
+          return json({
+            ok: true,
+            updatedAt: null,
+            sourceOnline: false,
+            vessels: [],
+          })
+        }
+
+        const sourceUpdatedMs =
+          new Date(
+            row.source_updated_at,
+          ).getTime()
+
+        const sourceOnline =
+          Number.isFinite(
+            sourceUpdatedMs,
+          ) &&
+          Date.now() -
+            sourceUpdatedMs <
+            3 * 60 * 1000
+
+        let parsed: unknown = []
+
+        try {
+          parsed =
+            JSON.parse(
+              row.snapshot_json,
+            )
+        } catch {
+          parsed = []
+        }
+
+        const maxAgeMs =
+          30 * 60 * 1000
+
+        const vessels =
+          (
+            Array.isArray(parsed)
+              ? parsed
+              : []
+          )
+            .map(
+              sanitizeAisVessel,
+            )
+            .filter(
+              (
+                vessel,
+              ): vessel is AisSnapshotVessel =>
+                vessel !== null &&
+                Date.now() -
+                  new Date(
+                    vessel.lastSeen,
+                  ).getTime() <=
+                  maxAgeMs,
+            )
+
+        return json({
+          ok: true,
+          updatedAt:
+            row.source_updated_at,
+          sourceOnline,
+          vessels,
+        })
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Erro ao carregar AIS.',
+          },
+          500,
+        )
+      }
     }
 
     if (
