@@ -2510,6 +2510,64 @@ button {
 }
 
 
+/* v0.26 — camada AIS */
+.ais-vessel-marker-wrapper {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.ais-vessel-marker {
+  width: 26px;
+  height: 34px;
+  transform-origin: 50% 50%;
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.72))
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
+}
+
+.ais-vessel-marker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ais-vessel-marker path {
+  fill: #f2a900;
+  stroke: #142635;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.ais-popup {
+  min-width: 180px;
+  line-height: 1.45;
+}
+
+.ais-popup strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ais-popup-age {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  opacity: 0.72;
+}
+
+.ais-popup-credit {
+  margin-top: 7px;
+  font-size: 0.7rem;
+  opacity: 0.58;
+}
+
+.ais-layer-status {
+  margin: -2px 0 4px;
+  padding: 0 0 5px;
+  color: #6f7f89;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
 /* v0.23.1 — melhorar legibilidade das estações de vento */
 .wind-station-marker {
   position: relative;
