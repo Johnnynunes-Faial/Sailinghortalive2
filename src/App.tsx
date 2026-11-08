@@ -114,6 +114,7 @@ type WindStation = {
   temperature: number | null
   observedAt: string | null
   rawMetar: string
+  source?: string
 }
 
 type AisVessel = {
@@ -918,7 +919,7 @@ function PublicLiveView() {
               L.latLng(station.latitude, station.longitude),
             ),
           )
-          .slice(0, 10),
+          .slice(0, 60),
       )
     } catch (error) {
       setWindStations([])
@@ -2113,7 +2114,7 @@ function PublicLiveView() {
               : ''
           }
           <div class="wind-station-credit">
-            METAR · AviationWeather.gov
+            ${escapeHtml(station.source ?? 'METAR · AviationWeather.gov')}
           </div>
         </div>
       `)
