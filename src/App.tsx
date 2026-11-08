@@ -328,6 +328,7 @@ function InstallAppPage() {
             <h2>Traccar Client</h2>
             <p>No iPhone, utiliza a aplicação oficial Traccar Client e configura o servidor indicado abaixo.</p>
             <a className="install-secondary" href="https://apps.apple.com/pt/app/traccar-client/id843156974" target="_blank" rel="noopener noreferrer">Abrir na App Store ↗</a>
+            <p className="install-footnote"><strong>Nas Definições da app:</strong> Precisão da posição: Máxima · Distância: 5 m · Intervalo: 5 s · Ângulo: 10°</p>
           </section>
         </div>
         <section className="install-steps">
