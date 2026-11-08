@@ -36,6 +36,9 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return
 
+  // O APK é um ficheiro grande e deve ser sempre descarregado da rede.
+  if (url.pathname.startsWith('/downloads/')) return
+
   // Nunca colocar dados Live/Admin/API em cache.
   if (
     url.origin === self.location.origin &&

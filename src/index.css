@@ -1470,6 +1470,50 @@ button {
   white-space: nowrap;
 }
 
+/* Página pública de instalação, isolada do mapa Live e do Replay. */
+.install-page { min-height: 100dvh; background: #f0f5f7; color: #102331; }
+.install-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px max(20px, calc((100vw - 1000px)/2)); background: #102331; color: white; }
+.install-brand { display: flex; align-items: center; gap: 11px; color: white; text-decoration: none; }
+.install-brand img { width: 42px; height: 42px; border-radius: 10px; }
+.install-brand span { display: flex; flex-direction: column; gap: 2px; }
+.install-brand small { font-size: 9px; letter-spacing: .16em; color: #9cc7d2; font-weight: 800; }
+.install-brand strong { font-size: 17px; }
+.install-back { color: #e9f6fa; font-size: 13px; font-weight: 700; text-decoration: none; }
+.install-content { max-width: 1000px; margin: 0 auto; padding: 55px 20px 55px; }
+.install-hero { max-width: 680px; margin-bottom: 32px; }
+.install-eyebrow, .install-platform { font-size: 11px; font-weight: 900; letter-spacing: .14em; color: #287989; }
+.install-hero h1 { margin: 12px 0 13px; font-size: clamp(32px, 5vw, 54px); letter-spacing: -.035em; line-height: 1.09; }
+.install-hero p { font-size: 18px; color: #506673; line-height: 1.6; }
+.install-platforms { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+.install-card, .install-steps { background: white; border: 1px solid #dae5e9; border-radius: 18px; padding: 28px; box-shadow: 0 8px 24px #10233108; }
+.install-card.featured { border-color: #98ced5; background: linear-gradient(150deg, #f6feff, #fff 70%); }
+.install-card h2 { margin: 12px 0 8px; font-size: 24px; }
+.install-card p { color: #536b78; line-height: 1.55; }
+.install-primary, .install-secondary { display: block; text-align: center; margin-top: 24px; padding: 15px; border-radius: 11px; text-decoration: none; font-weight: 800; }
+.install-primary { background: #087f92; color: white; }
+.install-primary:hover { background: #066c7c; }
+.install-secondary { background: #eaf1f4; color: #102331; }
+.install-card .install-footnote { margin: 9px 0 0; font-size: 12px; text-align: center; }
+.install-steps h2 { margin: 0 0 20px; font-size: 25px; }
+.install-steps ol { padding-left: 23px; margin: 0; }
+.install-steps li { padding: 0 0 17px 6px; line-height: 1.6; color: #465d69; }
+.install-steps li::marker { color: #087f92; font-weight: 900; }
+.install-steps li strong { color: #102331; }
+.install-steps code { background: #eaf2f5; padding: 3px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.install-alert { background: #e8f7f4; border-left: 4px solid #16937e; padding: 15px; border-radius: 8px; line-height: 1.5; }
+.install-extra { font-size: 13px; line-height: 1.6; color: #617784; margin: 16px 0 0; }
+.install-footer { text-align: center; margin-top: 28px; }
+.install-footer a { color: #087f92; font-weight: 800; text-decoration: none; }
+@media (max-width: 650px) {
+  .install-header { padding: 12px 15px; }
+  .install-brand strong { font-size: 14px; }
+  .install-back { font-size: 11px; }
+  .install-content { padding: 35px 15px; }
+  .install-hero p { font-size: 16px; }
+  .install-platforms { grid-template-columns: 1fr; }
+  .install-card, .install-steps { padding: 22px; }
+}
+
 .replay-page {
   min-height: 100vh;
   display: flex;

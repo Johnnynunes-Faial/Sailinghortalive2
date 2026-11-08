@@ -280,6 +280,10 @@ function addNauticalMapLayers(
 function App() {
   const path = window.location.pathname
 
+  if (path === '/app' || path === '/app/') {
+    return <InstallAppPage />
+  }
+
   if (path.startsWith('/replay')) {
     return <ReplayView />
   }
@@ -293,6 +297,55 @@ function App() {
   }
 
   return <PublicLiveView />
+}
+
+function InstallAppPage() {
+  return (
+    <main className="install-page">
+      <header className="install-header">
+        <a href="/" className="install-brand">
+          <img src="/pwa-192.png" alt="" />
+          <span><small>REGATA LIVE</small><strong>Sailinghorta Live</strong></span>
+        </a>
+        <a href="/" className="install-back">← Voltar ao mapa</a>
+      </header>
+      <div className="install-content">
+        <div className="install-hero">
+          <span className="install-eyebrow">TRANSMISSÃO GPS NAS REGATAS</span>
+          <h1>Coloca o teu barco no mapa.</h1>
+          <p>Instala a aplicação no telemóvel, indica o nome do barco e transmite a tua posição durante a regata.</p>
+        </div>
+        <div className="install-platforms">
+          <section className="install-card featured">
+            <span className="install-platform">ANDROID</span>
+            <h2>SailingHorta GPS</h2>
+            <p>Aplicação preparada para transmitir a posição do teu barco para o Sailinghorta Live.</p>
+            <a className="install-primary" href="/downloads/sailinghorta-live.apk" download="sailinghorta-live.apk">Descarregar aplicação Android ↓</a>
+            <p className="install-footnote">Ficheiro APK · Instalação fora da Google Play</p>
+          </section>
+          <section className="install-card">
+            <span className="install-platform">IPHONE / IOS</span>
+            <h2>Traccar Client</h2>
+            <p>No iPhone, utiliza a aplicação oficial Traccar Client e configura o servidor indicado abaixo.</p>
+            <a className="install-secondary" href="https://apps.apple.com/pt/app/traccar-client/id843156974" target="_blank" rel="noopener noreferrer">Abrir na App Store ↗</a>
+          </section>
+        </div>
+        <section className="install-steps">
+          <h2>Como começar</h2>
+          <ol>
+            <li><strong>Instala a aplicação.</strong> No Android, abre o APK descarregado. Se o telemóvel pedir autorização para instalar aplicações desta origem, permite-a apenas para esta instalação.</li>
+            <li><strong>Indica o nome do barco.</strong> Usa esse nome como identificador e comunica-o ao João Nunes para que o barco seja adicionado ao servidor.</li>
+            <li><strong>Confirma o servidor.</strong> No iPhone, coloca <code>https://api.sailinghortalive.com</code> no campo do servidor.</li>
+            <li><strong>Autoriza a localização.</strong> Escolhe <strong>Permitir sempre</strong> quando o sistema apresentar essa opção. No Android, coloca a bateria da aplicação em <strong>Sem restrições</strong> ou <strong>Não otimizar</strong>.</li>
+            <li><strong>Inicia a transmissão.</strong> Ativa o rastreio contínuo antes da regata. Podes bloquear o ecrã, mas não forces o encerramento da aplicação.</li>
+          </ol>
+          <div className="install-alert"><strong>Importante:</strong> no final da regata, desativa o rastreio contínuo para deixar de transmitir a localização.</div>
+          <p className="install-extra">Se houver dificuldades com a posição no Android, verifica a opção «Localização do sistema» nas definições avançadas da aplicação; nalgumas configurações pode ser necessário desativá-la. Não desligues a localização GPS do telemóvel.</p>
+        </section>
+        <footer className="install-footer"><a href="/">Voltar ao Sailinghorta Live →</a></footer>
+      </div>
+    </main>
+  )
 }
 
 type LiveMeasurementTarget = {
@@ -2373,6 +2426,10 @@ function PublicLiveView() {
             className="replay-link-button"
           >
             Replay
+          </a>
+
+          <a href="/app" className="replay-link-button" title="Instalar aplicação de transmissão GPS">
+            Instalar app
           </a>
 
           <button
