@@ -1178,18 +1178,9 @@ export default {
           } as RequestInit,
         )
 
-        if (response.status === 204) {
-          return json({ ok: true, stations: [] })
-        }
-
-        if (!response.ok) {
-          return json(
-            { ok: false, error: `METAR HTTP ${response.status}` },
-            502,
-          )
-        }
-
-        const data = await response.json() as Array<any>
+        const data = response.ok && response.status !== 204
+          ? await response.json() as Array<any>
+          : []
 
         const stations = (Array.isArray(data) ? data : [])
           .map((item) => {
@@ -1233,6 +1224,7 @@ export default {
                   : null,
               observedAt,
               rawMetar: String(item.rawOb ?? ''),
+              source: 'METAR · AviationWeather.gov',
             }
           })
           .filter(
@@ -1242,9 +1234,73 @@ export default {
               Number.isFinite(station.longitude),
           )
 
+        // IPMA: public hourly observations. Both upstream files are cached at
+        // the edge; one client request still serves the combined station layer.
+        try {
+          const ipmaBase = 'https://api.ipma.pt/open-data/observation/meteorology/stations'
+          const ipmaOptions = {
+            cf: { cacheTtl: 3600, cacheEverything: true },
+          } as RequestInit
+          const [metadataResponse, observationsResponse] = await Promise.all([
+            fetch(`${ipmaBase}/stations.json`, ipmaOptions),
+            fetch(`${ipmaBase}/observations.json`, ipmaOptions),
+          ])
+
+          if (metadataResponse.ok && observationsResponse.ok) {
+            const metadata = await metadataResponse.json() as Array<any>
+            const observations = await observationsResponse.json() as Record<string, Record<string, any>>
+            const times = Object.keys(observations).sort().reverse()
+            const now = Date.now()
+            const directionDegrees: Record<number, number> = {
+              1: 0, 2: 45, 3: 90, 4: 135, 5: 180,
+              6: 225, 7: 270, 8: 315, 9: 0,
+            }
+
+            for (const feature of Array.isArray(metadata) ? metadata : []) {
+              const [longitude, latitude] = feature.geometry?.coordinates ?? []
+              const id = String(feature.properties?.idEstacao ?? '')
+              if (!id || !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+                  latitude < 36.8 || latitude > 40.2 || longitude < -31.5 || longitude > -24.5) {
+                continue
+              }
+
+              for (const time of times) {
+                const observedAt = `${time}:00Z`
+                const age = now - Date.parse(observedAt)
+                if (!Number.isFinite(age) || age < -10 * 60_000 || age > 3 * 3600_000) continue
+                const observation = observations[time]?.[id]
+                const wind = Number(observation?.intensidadeVento)
+                if (!observation || observation.intensidadeVento == null ||
+                    !Number.isFinite(wind) || wind < 0) continue
+
+                const sector = Number(observation.idDireccVento)
+                const temperature = Number(observation.temperatura)
+                stations.push({
+                  id: `IPMA-${id}`,
+                  name: String(feature.properties?.localEstacao ?? id),
+                  latitude,
+                  longitude,
+                  windDirection: directionDegrees[sector] ?? null,
+                  variableWind: false,
+                  windSpeed: wind * 1.943844, // IPMA m/s to knots
+                  windGust: 0, // IPMA hourly feed has no measured gust field
+                  temperature: observation.temperatura != null &&
+                    Number.isFinite(temperature) && temperature > -90 ? temperature : null,
+                  observedAt,
+                  rawMetar: '',
+                  source: 'IPMA · observação horária',
+                })
+                break
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('IPMA stations unavailable:', error)
+        }
+
         return json({
           ok: true,
-          source: 'AviationWeather.gov METAR',
+          source: 'AviationWeather.gov METAR + IPMA',
           stations,
         })
       } catch (error) {
