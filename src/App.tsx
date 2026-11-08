@@ -340,7 +340,6 @@ function InstallAppPage() {
             <li><strong>Inicia a transmissão.</strong> Ativa o rastreio contínuo antes da regata. Podes bloquear o ecrã, mas não forces o encerramento da aplicação.</li>
           </ol>
           <div className="install-alert"><strong>Importante:</strong> no final da regata, desativa o rastreio contínuo para deixar de transmitir a localização.</div>
-          <p className="install-extra">Se houver dificuldades com a posição no Android, verifica a opção «Localização do sistema» nas definições avançadas da aplicação; nalgumas configurações pode ser necessário desativá-la. Não desligues a localização GPS do telemóvel.</p>
         </section>
         <footer className="install-footer"><a href="/">Voltar ao Sailinghorta Live →</a></footer>
       </div>
