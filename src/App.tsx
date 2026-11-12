@@ -4877,7 +4877,6 @@ function GeneralEditor({
   const [endTime, setEndTime] = useState(toLocalInput(event.end_time))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [timingEnabled, setTimingEnabled] = useState(Boolean(event.timingEnabled))
 
   async function save() {
     setSaving(true)
@@ -4901,22 +4900,6 @@ function GeneralEditor({
 
       if (!response.ok || !data.ok) {
         throw new Error(data.error || 'Erro ao guardar')
-      }
-
-      const timingResponse = await adminFetch(
-        `/admin/api/events/${encodeURIComponent(event.id)}/timing`,
-        {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ enabled: timingEnabled }),
-        },
-      )
-      const timingData = await readJsonResponse(timingResponse)
-      if (!timingResponse.ok || !timingData.ok) {
-        throw new Error(
-          timingData.error ||
-            'Os dados gerais foram guardados, mas não foi possível guardar a opção de tempos compensados.',
-        )
       }
 
       await onChanged()
@@ -5018,23 +5001,6 @@ function GeneralEditor({
       <label>
         Fim / hora limite
         <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-      </label>
-
-      <label className="general-timing-setting">
-        <span className="general-timing-description">
-          <strong>Tempos compensados em direto</strong>
-          <small>
-            Define já se os tempos compensados devem aparecer no Live
-            quando a regata começar. Também podes ligar ou desligar
-            durante a prova no Modo Regata.
-          </small>
-        </span>
-        <input
-          type="checkbox"
-          checked={timingEnabled}
-          onChange={(e) => setTimingEnabled(e.target.checked)}
-          disabled={saving || event.status === 'completed'}
-        />
       </label>
 
       {error && <div className="form-error">{error}</div>}
