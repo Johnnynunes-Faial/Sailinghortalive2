@@ -3128,3 +3128,14 @@ button {
     margin-right: 12px;
   }
 }
+
+
+/* Manter legível o botão de eliminação no editor de regatas. */
+.general-editor .general-actions .danger-button {
+  background: #b42318;
+  color: #ffffff;
+}
+.general-editor .general-actions .danger-button:hover:not(:disabled) {
+  background: #921e15;
+  color: #ffffff;
+}
