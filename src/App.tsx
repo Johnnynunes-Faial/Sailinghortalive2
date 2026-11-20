@@ -26,6 +26,7 @@ type EventItem = {
   end_time: string | null
   status: string
   timingEnabled?: boolean
+  trackingMode?: 'normal' | 'long'
   created_at: string
   updated_at: string
 }
@@ -157,6 +158,62 @@ function formatAisAge(
   }
 
   return `há ${minutes} min`
+}
+
+function formatBoatPositionAge(
+  value: string | null,
+) {
+  if (!value) return 'sem hora'
+
+  const ageMs =
+    Date.now() -
+    new Date(value).getTime()
+
+  if (
+    !Number.isFinite(ageMs) ||
+    ageMs < 0
+  ) {
+    return 'agora'
+  }
+
+  const minutes =
+    Math.floor(
+      ageMs / 60_000,
+    )
+
+  if (minutes < 1) {
+    return 'agora'
+  }
+
+  if (minutes < 60) {
+    return `há ${minutes} min`
+  }
+
+  const hours =
+    Math.floor(
+      minutes / 60,
+    )
+
+  const remainingMinutes =
+    minutes % 60
+
+  if (hours < 24) {
+    return remainingMinutes > 0
+      ? `há ${hours} h ${remainingMinutes} min`
+      : `há ${hours} h`
+  }
+
+  const days =
+    Math.floor(
+      hours / 24,
+    )
+
+  const remainingHours =
+    hours % 24
+
+  return remainingHours > 0
+    ? `há ${days} d ${remainingHours} h`
+    : `há ${days} d`
 }
 
 function windCardinal(degrees: number) {
@@ -1538,17 +1595,36 @@ function PublicLiveView() {
 
     loadLive()
 
-    const hasAnyLiveEvent =
-      events.some(
+    const liveEvents =
+      events.filter(
         (event) =>
           event.status === 'live',
       )
 
+    const hasAnyLiveEvent =
+      liveEvents.length > 0
+
+    const hasNormalLiveEvent =
+      liveEvents.some(
+        (event) =>
+          event.trackingMode !== 'long',
+      )
+
+    const selectedIsLongCourse =
+      selectedEventId !== 'general' &&
+      selectedPublicEvent?.trackingMode ===
+        'long'
+
     const liveRefreshMs =
-      selectedEventId === 'general' &&
-      !hasAnyLiveEvent
-        ? 10000
-        : 2000
+      selectedEventId === 'general'
+        ? !hasAnyLiveEvent
+          ? 10000
+          : hasNormalLiveEvent
+            ? 2000
+            : 30000
+        : selectedIsLongCourse
+          ? 30000
+          : 2000
 
     const timer =
       window.setInterval(
@@ -1606,7 +1682,10 @@ function PublicLiveView() {
     const trackRefreshMs =
       selectedEventId === 'general'
         ? 15000
-        : 5000
+        : selectedPublicEvent?.trackingMode ===
+            'long'
+          ? 5 * 60 * 1000
+          : 5000
 
     const timer = window.setInterval(
       loadTracks,
@@ -1621,6 +1700,7 @@ function PublicLiveView() {
     selectedEventId,
     tracksAvailable,
     showTracks,
+    selectedPublicEvent?.trackingMode,
   ])
 
   useEffect(() => {
@@ -1688,10 +1768,34 @@ function PublicLiveView() {
       const marker =
         boatMarkersRef.current.get(boat.id)
 
+      const positionAgeMs =
+        boat.position.fixTime
+          ? Date.now() -
+            new Date(
+              boat.position.fixTime,
+            ).getTime()
+          : 0
+
+      const stalePosition =
+        selectedPublicEvent?.trackingMode ===
+          'long' &&
+        Number.isFinite(
+          positionAgeMs,
+        ) &&
+        positionAgeMs >
+          10 * 60 * 1000
+
       const popup = `
         <strong>${escapeHtml(boat.name)}</strong><br>
         Velocidade: ${Number(boat.position.speed ?? 0).toFixed(1)} kn<br>
-        Rumo GPS: ${Math.round(boat.position.course ?? 0)}°
+        Rumo GPS: ${Math.round(boat.position.course ?? 0)}°<br>
+        ${selectedPublicEvent?.trackingMode === 'long'
+          ? `Última posição: ${escapeHtml(
+              formatBoatPositionAge(
+                boat.position.fixTime,
+              ),
+            )}`
+          : ''}
       `
 
       if (marker) {
@@ -1699,6 +1803,11 @@ function PublicLiveView() {
           boat.position.latitude,
           boat.position.longitude,
         ])
+        marker.setOpacity(
+          stalePosition
+            ? 0.45
+            : 1,
+        )
 
         const markerWithState =
           marker as L.Marker & {
@@ -1767,6 +1876,12 @@ function PublicLiveView() {
         )
           .addTo(map)
           .bindPopup(popup)
+
+        newMarker.setOpacity(
+          stalePosition
+            ? 0.45
+            : 1,
+        )
 
         ;(
           newMarker as L.Marker & {
@@ -1964,6 +2079,7 @@ function PublicLiveView() {
     tracks,
     measureMode,
     selectedBoatId,
+    selectedPublicEvent?.trackingMode,
   ])
 
   useEffect(() => {
@@ -2873,7 +2989,12 @@ function PublicLiveView() {
           </div>
         )}
 
-        <div className="boat-counter">{boats.length} barcos ativos</div>
+        <div className="boat-counter">
+          {boats.length}{' '}
+          {selectedPublicEvent?.trackingMode === 'long'
+            ? 'barcos no acompanhamento'
+            : 'barcos ativos'}
+        </div>
       </section>
     </main>
   )
@@ -4201,6 +4322,8 @@ function AdminView() {
   const [eventName, setEventName] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+  const [trackingMode, setTrackingMode] =
+    useState<'normal' | 'long'>('normal')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null)
@@ -4234,6 +4357,7 @@ function AdminView() {
           name: eventName.trim(),
           startTime: startTime || null,
           endTime: endTime || null,
+          trackingMode,
         }),
       })
 
@@ -4246,6 +4370,7 @@ function AdminView() {
       setEventName('')
       setStartTime('')
       setEndTime('')
+      setTrackingMode('normal')
       await loadEvents()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erro ao criar regata')
@@ -4306,6 +4431,32 @@ function AdminView() {
               />
             </label>
 
+            <label>
+              Modo de acompanhamento
+              <select
+                value={trackingMode}
+                onChange={(e) =>
+                  setTrackingMode(
+                    e.target.value === 'long'
+                      ? 'long'
+                      : 'normal',
+                  )
+                }
+              >
+                <option value="normal">
+                  Normal
+                </option>
+                <option value="long">
+                  Longo curso
+                </option>
+              </select>
+              <small className="tracking-mode-help">
+                Longo curso reduz as atualizações do site,
+                mantém a última posição até 48 h e otimiza
+                o rasto. A configuração da app não muda.
+              </small>
+            </label>
+
             {error && <div className="form-error">{error}</div>}
 
             <button type="submit" className="save-button" disabled={saving}>
@@ -4328,6 +4479,9 @@ function AdminView() {
                       : event.status === 'completed'
                         ? 'Terminada'
                         : 'Agendada'}
+                    {event.trackingMode === 'long'
+                      ? ' · Longo curso'
+                      : ''}
                   </div>
                 </div>
 
@@ -4875,6 +5029,12 @@ function GeneralEditor({
   const [name, setName] = useState(event.name)
   const [startTime, setStartTime] = useState(toLocalInput(event.start_time))
   const [endTime, setEndTime] = useState(toLocalInput(event.end_time))
+  const [trackingMode, setTrackingMode] =
+    useState<'normal' | 'long'>(
+      event.trackingMode === 'long'
+        ? 'long'
+        : 'normal',
+    )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -4892,6 +5052,7 @@ function GeneralEditor({
           name,
           startTime: startTime || null,
           endTime: endTime || null,
+          trackingMode,
         }),
         },
       )
@@ -5001,6 +5162,31 @@ function GeneralEditor({
       <label>
         Fim / hora limite
         <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+      </label>
+
+      <label>
+        Modo de acompanhamento
+        <select
+          value={trackingMode}
+          onChange={(e) =>
+            setTrackingMode(
+              e.target.value === 'long'
+                ? 'long'
+                : 'normal',
+            )
+          }
+        >
+          <option value="normal">
+            Normal
+          </option>
+          <option value="long">
+            Longo curso
+          </option>
+        </select>
+        <small className="tracking-mode-help">
+          Longo curso: Live 30 s · rasto 5 min ·
+          última posição até 48 h. Não altera o Traccar Client.
+        </small>
       </label>
 
       {error && <div className="form-error">{error}</div>}
