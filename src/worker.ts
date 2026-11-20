@@ -51,7 +51,11 @@ async function traccarFetch(env: Env, path: string) {
   })
 }
 
-async function getActiveBoats(env: Env) {
+async function getActiveBoats(
+  env: Env,
+  maxPositionAgeMs =
+    10 * 60 * 1000,
+) {
   const [devicesResponse, positionsResponse] = await Promise.all([
     traccarFetch(env, '/api/devices'),
     traccarFetch(env, '/api/positions'),
@@ -67,7 +71,6 @@ async function getActiveBoats(env: Env) {
     positions.map((position) => [position.deviceId, position]),
   )
 
-  const MAX_POSITION_AGE_MS = 10 * 60 * 1000
   const now = Date.now()
 
   return devices
@@ -84,7 +87,12 @@ async function getActiveBoats(env: Env) {
       if (!positionTime) return null
 
       const ageMs = now - new Date(positionTime).getTime()
-      if (!Number.isFinite(ageMs) || ageMs > MAX_POSITION_AGE_MS) return null
+      if (
+        !Number.isFinite(ageMs) ||
+        ageMs > maxPositionAgeMs
+      ) {
+        return null
+      }
 
       return {
         id: device.id,
@@ -334,6 +342,41 @@ function sanitizeAisVessel(
         .trim()
         .slice(0, 50),
   }
+}
+
+async function ensureEventTrackingModeColumn(
+  env: Env,
+) {
+  const columns = await env.DB.prepare(`
+    PRAGMA table_info(events)
+  `).all<{
+    name: string
+  }>()
+
+  const hasColumn =
+    (columns.results ?? []).some(
+      (column) =>
+        column.name === 'tracking_mode',
+    )
+
+  if (!hasColumn) {
+    try {
+      await env.DB.prepare(`
+        ALTER TABLE events
+        ADD COLUMN tracking_mode TEXT NOT NULL DEFAULT 'normal'
+      `).run()
+    } catch {
+      // Outra invocação pode ter criado a coluna em simultâneo.
+    }
+  }
+}
+
+function normalizeTrackingMode(
+  value: unknown,
+) {
+  return value === 'long'
+    ? 'long'
+    : 'normal'
 }
 
 async function ensureEventTimingEnabledColumn(
@@ -755,6 +798,7 @@ async function getReplayTrackForDevice(
   deviceId: number,
   fromIso: string,
   toIso: string,
+  maxPoints = 2000,
 ) {
   const params = new URLSearchParams({
     deviceId: String(deviceId),
@@ -804,7 +848,10 @@ async function getReplayTrackForDevice(
   return {
     ok: true,
     positions:
-      downsamplePositions(valid),
+      downsamplePositions(
+        valid,
+        maxPoints,
+      ),
   }
 }
 
@@ -1768,9 +1815,19 @@ export default {
     if (url.pathname === '/api/events' && request.method === 'GET') {
       try {
         await ensureEventTimingEnabledColumn(env)
+        await ensureEventTrackingModeColumn(env)
 
         const result = await env.DB.prepare(`
-          SELECT id, name, start_time, end_time, status, timing_enabled, created_at, updated_at
+          SELECT
+            id,
+            name,
+            start_time,
+            end_time,
+            status,
+            timing_enabled,
+            tracking_mode,
+            created_at,
+            updated_at
           FROM events
           ORDER BY start_time ASC, created_at ASC
         `).all()
@@ -1778,6 +1835,7 @@ export default {
         const events = (result.results ?? []).map((event: any) => {
           const {
             timing_enabled,
+            tracking_mode,
             ...rest
           } = event
 
@@ -1786,6 +1844,10 @@ export default {
             status: effectiveEventStatus(event),
             timingEnabled:
               Number(timing_enabled) === 1,
+            trackingMode:
+              normalizeTrackingMode(
+                tracking_mode,
+              ),
           }
         })
 
@@ -1802,6 +1864,38 @@ export default {
     if (eventTracksMatch && request.method === 'GET') {
       try {
         const eventId = eventTracksMatch[1]
+
+        await ensureEventTrackingModeColumn(env)
+
+        const event =
+          await env.DB.prepare(`
+            SELECT
+              start_time,
+              tracking_mode
+            FROM events
+            WHERE id = ?
+          `).bind(
+            eventId,
+          ).first<{
+            start_time: string | null
+            tracking_mode: string | null
+          }>()
+
+        if (!event) {
+          return json(
+            {
+              ok: false,
+              error: 'Regata não encontrada',
+            },
+            404,
+          )
+        }
+
+        const trackingMode =
+          normalizeTrackingMode(
+            event.tracking_mode,
+          )
+
         const requestedDistance = Number(url.searchParams.get('distance') ?? '1')
         const distanceNm = Math.min(2, Math.max(0.5, requestedDistance))
 
@@ -1817,16 +1911,43 @@ export default {
 
         const rows = participants.results ?? []
 
+        const longCourseFrom =
+          trackingMode === 'long'
+            ? azoresLocalToUtcIso(
+                event.start_time,
+              )
+            : null
+
+        const longCourseTo =
+          new Date().toISOString()
+
         const trackResults = await Promise.all(
           rows.map(async (participant) => {
-            const positions = await getTrackForDevice(
-              env,
-              Number(participant.traccar_device_id),
-              distanceNm,
-            )
+            const deviceId =
+              Number(
+                participant.traccar_device_id,
+              )
+
+            const positions =
+              trackingMode === 'long' &&
+              longCourseFrom
+                ? (
+                    await getReplayTrackForDevice(
+                      env,
+                      deviceId,
+                      longCourseFrom,
+                      longCourseTo,
+                      500,
+                    )
+                  ).positions
+                : await getTrackForDevice(
+                    env,
+                    deviceId,
+                    distanceNm,
+                  )
 
             return {
-              deviceId: Number(participant.traccar_device_id),
+              deviceId,
               boatName: participant.boat_name,
               positions: positions.map((position) => ({
                 latitude: position.latitude,
@@ -1843,7 +1964,15 @@ export default {
 
         return json({
           ok: true,
-          distanceNm,
+          trackingMode,
+          distanceNm:
+            trackingMode === 'long'
+              ? null
+              : distanceNm,
+          maxPointsPerBoat:
+            trackingMode === 'long'
+              ? 500
+              : null,
           tracks: trackResults,
         })
       } catch (error) {
@@ -2226,6 +2355,7 @@ export default {
         const eventId = liveEventMatch[1]
 
         await ensureEventTimingEnabledColumn(env)
+        await ensureEventTrackingModeColumn(env)
 
         const event = await env.DB.prepare(`
           SELECT
@@ -2234,7 +2364,8 @@ export default {
             start_time,
             end_time,
             status,
-            timing_enabled
+            timing_enabled,
+            tracking_mode
           FROM events
           WHERE id = ?
         `).bind(eventId).first<{
@@ -2244,6 +2375,7 @@ export default {
           end_time: string | null
           status: string
           timing_enabled: number
+          tracking_mode: string | null
         }>()
 
         if (!event) {
@@ -2281,8 +2413,21 @@ export default {
           ),
         )
 
+        const trackingMode =
+          normalizeTrackingMode(
+            event.tracking_mode,
+          )
+
+        const maxPositionAgeMs =
+          trackingMode === 'long'
+            ? 48 * 60 * 60 * 1000
+            : 10 * 60 * 1000
+
         const allActiveBoats =
-          await getActiveBoats(env)
+          await getActiveBoats(
+            env,
+            maxPositionAgeMs,
+          )
 
         const participantNameByDevice =
           new Map(
@@ -2950,6 +3095,7 @@ export default {
           ok: true,
           eventId,
           eventStatus,
+          trackingMode,
           updatedAt: new Date().toISOString(),
           boats,
           course: course.results ?? [],
@@ -2967,24 +3113,44 @@ export default {
           name?: string
           startTime?: string
           endTime?: string
+          trackingMode?: string
         }
 
         const name = body.name?.trim()
         if (!name) return json({ ok: false, error: 'Nome da regata obrigatório' }, 400)
 
+        const trackingMode =
+          normalizeTrackingMode(
+            body.trackingMode,
+          )
+
         const id = crypto.randomUUID()
 
+        await ensureEventTrackingModeColumn(env)
+
         await env.DB.prepare(`
-          INSERT INTO events (id, name, start_time, end_time, status)
-          VALUES (?, ?, ?, ?, 'scheduled')
+          INSERT INTO events (
+            id,
+            name,
+            start_time,
+            end_time,
+            status,
+            tracking_mode
+          )
+          VALUES (?, ?, ?, ?, 'scheduled', ?)
         `).bind(
           id,
           name,
           body.startTime ?? null,
           body.endTime ?? null,
+          trackingMode,
         ).run()
 
-        return json({ ok: true, id }, 201)
+        return json({
+          ok: true,
+          id,
+          trackingMode,
+        }, 201)
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao criar regata' }, 500)
       }
@@ -3137,23 +3303,40 @@ export default {
           name?: string
           startTime?: string | null
           endTime?: string | null
+          trackingMode?: string
         }
 
         const name = body.name?.trim()
         if (!name) return json({ ok: false, error: 'Nome da regata obrigatório' }, 400)
 
+        const trackingMode =
+          normalizeTrackingMode(
+            body.trackingMode,
+          )
+
+        await ensureEventTrackingModeColumn(env)
+
         await env.DB.prepare(`
           UPDATE events
-          SET name = ?, start_time = ?, end_time = ?, updated_at = CURRENT_TIMESTAMP
+          SET
+            name = ?,
+            start_time = ?,
+            end_time = ?,
+            tracking_mode = ?,
+            updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `).bind(
           name,
           body.startTime ?? null,
           body.endTime ?? null,
+          trackingMode,
           eventId,
         ).run()
 
-        return json({ ok: true })
+        return json({
+          ok: true,
+          trackingMode,
+        })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao atualizar regata' }, 500)
       }
