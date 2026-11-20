@@ -288,7 +288,9 @@ button {
 }
 
 .admin-form input,
+.admin-form select,
 .general-editor input,
+.general-editor select,
 .course-editor input,
 .course-editor select {
   width: 100%;
@@ -298,6 +300,15 @@ button {
   padding: 0 11px;
   background: white;
   color: #102331;
+}
+
+.tracking-mode-help {
+  display: block;
+  margin-top: -1px;
+  color: #71808d;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .form-error,
