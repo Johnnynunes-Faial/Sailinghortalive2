@@ -55,6 +55,8 @@ async function getActiveBoats(
   env: Env,
   maxPositionAgeMs =
     10 * 60 * 1000,
+  minPositionTimeMs:
+    number | null = null,
 ) {
   const [devicesResponse, positionsResponse] = await Promise.all([
     traccarFetch(env, '/api/devices'),
@@ -86,10 +88,25 @@ async function getActiveBoats(
 
       if (!positionTime) return null
 
-      const ageMs = now - new Date(positionTime).getTime()
+      const positionTimeMs =
+        new Date(
+          positionTime,
+        ).getTime()
+
+      const ageMs =
+        now - positionTimeMs
+
       if (
+        !Number.isFinite(
+          positionTimeMs,
+        ) ||
         !Number.isFinite(ageMs) ||
-        ageMs > maxPositionAgeMs
+        ageMs > maxPositionAgeMs ||
+        (
+          minPositionTimeMs !== null &&
+          positionTimeMs <
+            minPositionTimeMs
+        )
       ) {
         return null
       }
@@ -2418,15 +2435,38 @@ export default {
             event.tracking_mode,
           )
 
+        const eventStartIso =
+          trackingMode === 'long'
+            ? azoresLocalToUtcIso(
+                event.start_time,
+              )
+            : null
+
+        const eventStartMs =
+          eventStartIso
+            ? new Date(
+                eventStartIso,
+              ).getTime()
+            : null
+
         const maxPositionAgeMs =
           trackingMode === 'long'
-            ? 48 * 60 * 60 * 1000
+            ? Number.POSITIVE_INFINITY
             : 10 * 60 * 1000
+
+        const minPositionTimeMs =
+          trackingMode === 'long' &&
+          Number.isFinite(
+            eventStartMs,
+          )
+            ? eventStartMs
+            : null
 
         const allActiveBoats =
           await getActiveBoats(
             env,
             maxPositionAgeMs,
+            minPositionTimeMs,
           )
 
         const participantNameByDevice =
