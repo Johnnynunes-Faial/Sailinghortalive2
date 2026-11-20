@@ -4452,8 +4452,8 @@ function AdminView() {
               </select>
               <small className="tracking-mode-help">
                 Longo curso reduz as atualizações do site,
-                mantém a última posição até 48 h e otimiza
-                o rasto. A configuração da app não muda.
+                mantém a última posição durante a regata e
+                otimiza o rasto. A configuração da app não muda.
               </small>
             </label>
 
@@ -5185,7 +5185,8 @@ function GeneralEditor({
         </select>
         <small className="tracking-mode-help">
           Longo curso: Live 30 s · rasto 5 min ·
-          última posição até 48 h. Não altera o Traccar Client.
+          última posição mantida durante a regata.
+          Não altera o Traccar Client.
         </small>
       </label>
 
