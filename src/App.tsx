@@ -6233,6 +6233,10 @@ function CourseEditor({ event }: { event: EventItem }) {
   const [library, setLibrary] = useState<LibraryBuoy[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [editingPointIndex, setEditingPointIndex] = useState<number | null>(null)
+  const [editingPointLat, setEditingPointLat] = useState('')
+  const [editingPointLon, setEditingPointLon] = useState('')
+  const [savingPointCoordinates, setSavingPointCoordinates] = useState(false)
   const [showHistoryTracks, setShowHistoryTracks] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyData, setHistoryData] = useState<ReplayEventData | null>(null)
@@ -6255,6 +6259,9 @@ function CourseEditor({ event }: { event: EventItem }) {
 
   useEffect(() => {
     refreshBoatColors()
+    setEditingPointIndex(null)
+    setEditingPointLat('')
+    setEditingPointLon('')
   }, [event.id])
 
   useEffect(() => {
@@ -6727,6 +6734,98 @@ function CourseEditor({ event }: { event: EventItem }) {
     ])
   }
 
+
+  function beginEditingPointCoordinates(index: number) {
+    const point = points[index]
+    if (!point) return
+
+    setEditingPointIndex(index)
+    setEditingPointLat(formatBoatingCoordinate(point.latitude, 'lat'))
+    setEditingPointLon(formatBoatingCoordinate(point.longitude, 'lon'))
+    setMessage(null)
+  }
+
+  function cancelEditingPointCoordinates() {
+    if (savingPointCoordinates) return
+    setEditingPointIndex(null)
+    setEditingPointLat('')
+    setEditingPointLon('')
+  }
+
+  async function saveEditedPointCoordinates() {
+    const index = editingPointIndex
+    if (index === null || savingPointCoordinates) return
+
+    const point = points[index]
+    if (!point) {
+      setMessage('A marca deixou de estar disponível. Reabre a edição.')
+      cancelEditingPointCoordinates()
+      return
+    }
+
+    const latitude = parseBoatingCoordinate(editingPointLat, 'lat')
+    const longitude = parseBoatingCoordinate(editingPointLon, 'lon')
+    if (latitude === null || longitude === null) {
+      setMessage("Coordenadas inválidas. Exemplo: 38º33.457'N e 028º37.123'W.")
+      return
+    }
+
+    const pointName = point.name || labelPointType(point.point_type)
+
+    if (point.id == null) {
+      // Marca ainda não gravada: atualiza apenas o editor.
+      setPoints((current) =>
+        current.map((item, i) =>
+          i === index ? { ...item, latitude, longitude } : item,
+        ),
+      )
+      setMessage(
+        `Coordenadas de "${pointName}" atualizadas no editor. Carrega em "Guardar percurso" para as gravar.`,
+      )
+      cancelEditingPointCoordinates()
+      return
+    }
+
+    // Numa regata em curso, altera apenas esta marca na BD.
+    // Não regrava as outras marcas, as linhas ou os participantes.
+    const pointId = point.id
+    setSavingPointCoordinates(true)
+    setMessage(null)
+
+    try {
+      const response = await adminFetch(
+        `/admin/api/events/${encodeURIComponent(event.id)}/course-points/${pointId}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ latitude, longitude }),
+        },
+      )
+      const data = await readJsonResponse(response)
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Erro ao guardar coordenadas.')
+      }
+
+      setPoints((current) =>
+        current.map((item) =>
+          item.id === pointId ? { ...item, latitude, longitude } : item,
+        ),
+      )
+      setEditingPointIndex(null)
+      setEditingPointLat('')
+      setEditingPointLon('')
+      setMessage(
+        `Coordenadas de "${pointName}" guardadas. O mapa Live recebe-as na próxima atualização.`,
+      )
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao guardar coordenadas.',
+      )
+    } finally {
+      setSavingPointCoordinates(false)
+    }
+  }
+
   async function saveCourse() {
     setSaving(true)
     setMessage(null)
@@ -6782,9 +6881,16 @@ function CourseEditor({ event }: { event: EventItem }) {
         throw new Error(linesData.error || 'Erro ao guardar linhas')
       }
 
-      setPoints((current) =>
-        current.map((point, index) => ({ ...point, point_order: index })),
-      )
+      // Recarrega os IDs que a gravação completa acabou de criar.
+      // Assim, correções posteriores podem atualizar só uma marca.
+      if (Array.isArray(pointsData.points) && pointsData.points.length === points.length) {
+        setPoints(pointsData.points.map(normalizeCoursePoint))
+      } else {
+        // Evita usar IDs antigos após a substituição do percurso.
+        setPoints((current) =>
+          current.map((point, index) => ({ ...point, id: undefined, point_order: index })),
+        )
+      }
 
       setMessage('Percurso e linhas guardados.')
     } catch (error) {
@@ -7158,21 +7264,41 @@ function CourseEditor({ event }: { event: EventItem }) {
 
                 <div className="point-actions">
                   <button
+                    type="button"
+                    className="tiny-button point-edit-trigger"
+                    onClick={() => beginEditingPointCoordinates(index)}
+                    disabled={editingPointIndex !== null || savingPointCoordinates}
+                    title="Editar coordenadas"
+                    aria-label={`Editar coordenadas de ${point.name || labelPointType(point.point_type)}`}
+                  >
+                    ✎
+                  </button>
+
+                  <button
+                    type="button"
                     className="tiny-button"
                     onClick={() => movePoint(index, -1)}
+                    disabled={editingPointIndex !== null || savingPointCoordinates}
+                    aria-label="Mover marca para cima"
                   >
                     ↑
                   </button>
 
                   <button
+                    type="button"
                     className="tiny-button"
                     onClick={() => movePoint(index, 1)}
+                    disabled={editingPointIndex !== null || savingPointCoordinates}
+                    aria-label="Mover marca para baixo"
                   >
                     ↓
                   </button>
 
                   <button
+                    type="button"
                     className="tiny-button danger"
+                    disabled={editingPointIndex !== null || savingPointCoordinates}
+                    aria-label="Remover marca do percurso"
                     onClick={() =>
                       setPoints((current) =>
                         current.filter((_, i) => i !== index),
@@ -7182,6 +7308,62 @@ function CourseEditor({ event }: { event: EventItem }) {
                     ×
                   </button>
                 </div>
+
+                {editingPointIndex === index && (
+                  <div className="course-point-coordinate-editor">
+                    <div className="coordinate-row">
+                      <label>
+                        Latitude
+                        <input
+                          type="text"
+                          value={editingPointLat}
+                          onChange={(e) => setEditingPointLat(e.target.value)}
+                          placeholder="38º33.457'N"
+                          disabled={savingPointCoordinates}
+                        />
+                      </label>
+                      <label>
+                        Longitude
+                        <input
+                          type="text"
+                          value={editingPointLon}
+                          onChange={(e) => setEditingPointLon(e.target.value)}
+                          placeholder="028º37.123'W"
+                          disabled={savingPointCoordinates}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="course-point-coordinate-actions">
+                      <button
+                        type="button"
+                        className="save-button"
+                        disabled={savingPointCoordinates}
+                        onClick={saveEditedPointCoordinates}
+                      >
+                        {savingPointCoordinates
+                          ? 'A guardar...'
+                          : point.id == null
+                            ? 'Aplicar coordenadas'
+                            : 'Guardar coordenadas'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={savingPointCoordinates}
+                        onClick={cancelEditingPointCoordinates}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+
+                    <p className="course-point-coordinate-hint">
+                      {point.id == null
+                        ? 'Esta marca ainda não foi gravada. Guarda o percurso depois de aplicar.'
+                        : 'Guarda só esta marca, mesmo com a regata em curso.'}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -7194,7 +7376,7 @@ function CourseEditor({ event }: { event: EventItem }) {
         <button
           className="save-button"
           onClick={saveCourse}
-          disabled={saving}
+          disabled={saving || savingPointCoordinates || editingPointIndex !== null}
         >
           {saving ? 'A guardar...' : 'Guardar percurso'}
         </button>

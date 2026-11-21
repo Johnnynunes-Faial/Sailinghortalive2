@@ -607,7 +607,7 @@ button {
 
 .course-point-row {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
@@ -629,6 +629,7 @@ button {
 .point-info {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
 
 .point-info span {
@@ -638,7 +639,64 @@ button {
 
 .point-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 5px;
+}
+
+.point-edit-trigger {
+  background: #e5f1ff;
+  color: #1369bb;
+}
+
+.course-point-coordinate-editor {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  background: #f3f8fc;
+  border: 1px solid #d5e3ef;
+  border-radius: 9px;
+}
+
+.course-point-coordinate-editor .coordinate-row {
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.course-point-coordinate-editor label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.course-point-coordinate-editor input {
+  width: 100%;
+  min-width: 0;
+}
+
+.course-point-coordinate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.course-point-coordinate-actions button {
+  width: auto;
+}
+
+.course-point-coordinate-hint {
+  margin: 0;
+  color: #607581;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .course-point-coordinate-editor .coordinate-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tiny-button {
