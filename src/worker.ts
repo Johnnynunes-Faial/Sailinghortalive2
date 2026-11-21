@@ -3855,6 +3855,56 @@ export default {
       }
     }
 
+
+    // Corrige uma única marca sem apagar/recriar o percurso da regata.
+    const coursePointCoordinatesMatch = url.pathname.match(
+      /^\/admin\/api\/events\/([^/]+)\/course-points\/(\d+)$/,
+    )
+
+    if (coursePointCoordinatesMatch && request.method === 'PATCH') {
+      try {
+        const eventId = coursePointCoordinatesMatch[1]
+        const pointId = Number(coursePointCoordinatesMatch[2])
+        const body = await request.json() as {
+          latitude?: unknown
+          longitude?: unknown
+        }
+
+        const latitude = body?.latitude
+        const longitude = body?.longitude
+
+        if (
+          !Number.isSafeInteger(pointId) ||
+          pointId <= 0 ||
+          typeof latitude !== 'number' ||
+          !Number.isFinite(latitude) ||
+          Math.abs(latitude) > 90 ||
+          typeof longitude !== 'number' ||
+          !Number.isFinite(longitude) ||
+          Math.abs(longitude) > 180
+        ) {
+          return json({ ok: false, error: 'Coordenadas inválidas.' }, 400)
+        }
+
+        const updated = await env.DB.prepare(`
+          UPDATE course_points
+          SET latitude = ?, longitude = ?
+          WHERE id = ? AND event_id = ?
+        `).bind(latitude, longitude, pointId, eventId).run()
+
+        if (!updated.meta || updated.meta.changes === 0) {
+          return json({ ok: false, error: 'Marca não encontrada nesta regata.' }, 404)
+        }
+
+        return json({ ok: true, point: { id: pointId, latitude, longitude } })
+      } catch (error) {
+        return json({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Erro ao atualizar coordenadas.',
+        }, 500)
+      }
+    }
+
     const courseLinesMatch = url.pathname.match(
       /^\/admin\/api\/events\/([^/]+)\/course-lines$/,
     )
