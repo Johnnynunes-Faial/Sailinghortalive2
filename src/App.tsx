@@ -6881,9 +6881,16 @@ function CourseEditor({ event }: { event: EventItem }) {
         throw new Error(linesData.error || 'Erro ao guardar linhas')
       }
 
-      setPoints((current) =>
-        current.map((point, index) => ({ ...point, point_order: index })),
-      )
+      // Recarrega os IDs que a gravação completa acabou de criar.
+      // Assim, correções posteriores podem atualizar só uma marca.
+      if (Array.isArray(pointsData.points) && pointsData.points.length === points.length) {
+        setPoints(pointsData.points.map(normalizeCoursePoint))
+      } else {
+        // Evita usar IDs antigos após a substituição do percurso.
+        setPoints((current) =>
+          current.map((point, index) => ({ ...point, id: undefined, point_order: index })),
+        )
+      }
 
       setMessage('Percurso e linhas guardados.')
     } catch (error) {
