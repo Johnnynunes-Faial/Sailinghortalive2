@@ -3849,7 +3849,15 @@ export default {
 
         await env.DB.batch(statements)
 
-        return json({ ok: true, count: points.length })
+        // Inclui os novos IDs; o editor pode atualizar uma marca de cada vez.
+        const savedCourse = await env.DB.prepare(`
+          SELECT id, event_id, point_type, name, latitude, longitude, point_order, rounding_side
+          FROM course_points
+          WHERE event_id = ?
+          ORDER BY point_order ASC
+        `).bind(eventId).all()
+
+        return json({ ok: true, count: points.length, points: savedCourse.results ?? [] })
       } catch (error) {
         return json({ ok: false, error: error instanceof Error ? error.message : 'Erro ao guardar percurso' }, 500)
       }
